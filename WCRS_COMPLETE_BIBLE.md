@@ -1,8 +1,8 @@
 -------------------------------------------------------------
-WORKFLOW CAPTURE + REPLAY SYSTEM (WC+RS) —COMPLETE BIBLE
+# WORKFLOW CAPTURE + REPLAY SYSTEM (WC+RS) â€”COMPLETE BIBLE
 -------------------------------------------------------------
 Created: March 30, 2026
-Author: Claude (Opus 4.6) — Commissioned by Logan (MetaphyLLC)
+Author: Claude (Opus 4.6) â€” Commissioned by Logan (MetaphyLLC)
 Protocol Chain: Hunter . Brainstorm . Build . Bug Hunt .Optimize
 Version: 1.0 (Optimized)
 -------------------------------------------------------------
@@ -16,30 +16,30 @@ Why does it exist?
 The Core Insight:
  The winning approach is NOT mouse-coordinate replay. It is: humaninteraction . semantic action . app state transition . validation rule . documentartifact check . recovery path
 Primary Use Case:
- CU (Clinical Update) workflows in PointClickCare — a 15+ step document-heavy insurance submission process with conditional branches, date-scoped filters, mixednaming conventions, popup handlers, and PDF fidelity requirements.
+ CU (Clinical Update) workflows in PointClickCare â€” a 15+ step document-heavy insurance submission process with conditional branches, date-scoped filters, mixednaming conventions, popup handlers, and PDF fidelity requirements.
 Generalized Use Case:
  Any repetitive browser-based insurance, EMR, or portal workflow thatneeds to be taught to an AI agent.
 -------------------------------------------------------------
-STEP 1: HUNTER PROTOCOL REPORT — Knowledge Extractionon WC+RS
+STEP 1: HUNTER PROTOCOL REPORT â€” Knowledge Extractionon WC+RS
 -------------------------------------------------------------
 Hunt Report
 Hunt Date:
  March 30, 2026 Hunter:
  Claude (Opus 4.6) Topic:
- Workflow Capture + ReplaySystem — Full Knowledge Extraction Complexity:
+ Workflow Capture + ReplaySystem â€” Full Knowledge Extraction Complexity:
  Tier 2: Deep Dive
 Executive Summary
 The WC+RS document describes a six-module system designed to bridge the gap betweenhuman demonstration and AI execution of complex browser workflows. The core innovation istreating enterprise web workflows NOT as click sequences but as state machine traversals withvalidation gates. Three critical insights emerged: (1) the system's true value is the UI StateMapper that builds an interaction graph, not the action recorder; (2) PDF fidelity verification is amake-or-break module for the CU use case; (3) the document distinguishes between a runtimesystem and a compiler system, and the runtime must come first.
 Key Insights Found
 # Insight Confidence Verified? 
-1 The problem is NOT "AI doesn't know the steps" — it's "AI can't reliablyperceive and execute on hostile enterprise UIs" HIGH YES 
+1 The problem is NOT "AI doesn't know the steps" â€” it's "AI can't reliablyperceive and execute on hostile enterprise UIs" HIGH YES 
 2 Mouse/keystroke-to-code is too low-level; semantic action capture is thecorrect abstraction HIGH YES 
-3 The UI State Mapper (module 2) is identified as "the most importantpiece" — it models the app as a directed graph HIGH YES 
-4 Playwright page.pdf() vs native browser Print produces different outputs— this is a known, critical failure point HIGH YES 
+3 The UI State Mapper (module 2) is identified as "the most importantpiece" â€” it models the app as a directed graph HIGH YES 
+4 Playwright page.pdf() vs native browser Print produces different outputsâ€” this is a known, critical failure point HIGH YES 
 5 The CU workflow has mixed naming rules (pull date vs document date)requiring a rules engine, not just automation HIGH YES 
-6 The "CU Copilot Runtime" is the single highest-leverage build — watchone demo, output a reusable workflow graph HIGH YES 
+6 The "CU Copilot Runtime" is the single highest-leverage build â€” watchone demo, output a reusable workflow graph HIGH YES 
 7 The system needs six tightly integrated modules, not a monolithic tool MEDIUM YES 
-8 Enterprise apps demand "semantic replay" not "coordinate replay" —click the admission record button in context, not move to x=842 y=311 HIGH YES 
+8 Enterprise apps demand "semantic replay" not "coordinate replay" â€”click the admission record button in context, not move to x=842 y=311 HIGH YES 
 9 Recovery paths (when UI diverges from expected state) are a first-classconcern, not an afterthought HIGH YES 
 10 A "Human Demonstration to Executable Skill Compiler" is the follow-ontool after the runtime MEDIUM YES 
 
@@ -79,7 +79,7 @@ Recovery paths must be designed at architecture time, not bolted on later
 Improvements Made (ABIOS)
 Identified that XState is the ideal state machine library for the UI State Mapper
 Recognized that Playwright's codegen + trace viewer provide foundation capabilities
-Flagged that Chrome DevTools Recorder exports JSON user flows — potential data formatalignment
+Flagged that Chrome DevTools Recorder exports JSON user flows â€” potential data formatalignment
 
 Quality Gates
 Gate Status Notes 
@@ -91,7 +91,7 @@ Gate Status Notes
 6. ACTIONABILITY . PASS Concrete next steps defined 
 
 -------------------------------------------------------------
-STEP 2: BRAINSTORM PROTOCOL REPORT — Idea-to-Implementation on WC+RS
+STEP 2: BRAINSTORM PROTOCOL REPORT â€” Idea-to-Implementation on WC+RS
 -------------------------------------------------------------
 BRAINSTORM REPORT
 Date:
@@ -114,7 +114,7 @@ B-001: Action-State Recorder
 THEORIZE
 Core Idea:
  A Chrome extension that records every meaningful human action with exact pagestate before and after. Problem/Opportunity:
- AI agents guess at DOM state — they need realruntime observability. Mechanism (ideal):
+ AI agents guess at DOM state â€” they need realruntime observability. Mechanism (ideal):
  Intercept DOM events, captureURL/frame/selectors/text/screenshots/network calls, output structured JSON. North-StarVision:
  One human demonstration produces a machine-readable workflow trace with all contextan agent needs. Origin:
  WC+RS document Module 1 + Logan's original insight about translatingmouse/keystrokes.
@@ -122,7 +122,7 @@ CONCEPTUALIZE
 Inputs:
  Human browser actions (clicks, keystrokes, navigation, popup events, downloads)Outputs:
  JSON action log with before/after state snapshots per action Home:
- Chrome Extension(Manifest V3) — content script + background service worker Technology:
+ Chrome Extension(Manifest V3) â€” content script + background service worker Technology:
  Chrome ExtensionAPIs (chrome.debugger, chrome.webNavigation, MutationObserver), Chrome DevTools ProtocolUser Interaction:
  Logan clicks "Record" in extension popup, performs workflow, clicks "Stop"Success Observable:
  JSON file appears with every step, selectors, screenshots, networkfingerprints Simplest Possible Form:
@@ -134,11 +134,11 @@ Weaknesses:
  Add a "checkpoint" button so thehuman can annotate critical state transitions Simpler Alternative:
  Use Playwright's codegen forinitial recording, then enhance with custom extension 30-Day Complaint:
  Too much noise inrecordings; need filtering/annotation tools Interaction Risk:
- None — read-only observer, doesn'tmodify pages Scores:
+ None â€” read-only observer, doesn'tmodify pages Scores:
  Simplicity 6/10 | Impact 9/10 | Safety 8/10 | Value/Cost 8/10
 PLAN
 Priority:
- P0 — Critical Path New Files:
+ P0 â€” Critical Path New Files:
 extension/manifest.json, extension/background.js,extension/content.js, extension/popup.html, extension/recorder.jsDependencies:
 Chrome Extension Manifest V3, Chrome DevTools Protocol Tests Required:
  Record a 5-stepnavigation flow, verify JSON output contains all actions with selectors
@@ -150,14 +150,14 @@ Version:
 2. Interface
 
 Input: User browser interactions (click, type, navigate, popup open/close, print, download)
-Output: workflow_trace.json — array of ActionEvent objects
+Output: workflow_trace.json â€” array of ActionEvent objects
 Endpoint: Extension popup provides Start/Stop/Export controls
 
 3. Behavior
 
 Happy path: User clicks Record . performs workflow . clicks Stop . exports JSON
 Error path: If page crashes or extension loses connection, save partial trace with errormarker
-Edge case: iframes — recorder must track active frame context; popups — must detectwindow.open events
+Edge case: iframes â€” recorder must track active frame context; popups â€” must detectwindow.open events
 
 4. Data Model
 
@@ -198,28 +198,28 @@ Core Idea:
  AI treats workflows as linearsequences; real enterprise UIs are state machines with branches and loops. Mechanism (ideal):
 Consume Action-State Recorder traces, infer state graph, add guards/assertions/recovery paths.North-Star Vision:
  A complete, inspectable map of PointClickCare's CU workflow as a statemachine. Origin:
- WC+RS document Module 2 — "the most important piece."
+ WC+RS document Module 2 â€” "the most important piece."
 CONCEPTUALIZE
 Inputs:
  workflow_trace.json from Action-State Recorder (one or more recordings) Outputs:
-workflow_graph.json — XState-compatible state machine definition Home:
- Node.js module —src/state-mapper/Technology:
+workflow_graph.json â€” XState-compatible state machine definition Home:
+ Node.js module â€”src/state-mapper/Technology:
  XState v5, custom graph builder, diff engine for mergingmultiple traces User Interaction:
  CLI command: wcrs map --traces ./traces/ --outputcu_workflow.jsonSuccess Observable:
  Visual state machine diagram in Stately.ai visualizerSimplest Possible Form:
  Parse trace JSON, create one state per unique URL, one transition peraction
 IMPROVE
 Weaknesses:
- Inferring guards from a single trace is impossible — needs multiple recordingswith different paths Edge Cases:
+ Inferring guards from a single trace is impossible â€” needs multiple recordingswith different paths Edge Cases:
  Same URL with different modal states; AJAX-heavy pageswhere URL doesn't change 10% Better With:
- Confidence scoring per edge — how manyrecordings confirm this transition? Simpler Alternative:
+ Confidence scoring per edge â€” how manyrecordings confirm this transition? Simpler Alternative:
  Manual YAML definition ofstates/transitions (but misses the whole point of "capture") 30-Day Complaint:
  Graph getscluttered with too many states; needs collapsing/grouping Interaction Risk:
- None — offlineanalysis tool Scores:
+ None â€” offlineanalysis tool Scores:
  Simplicity 4/10 | Impact 10/10 | Safety 9/10 | Value/Cost 9/10
 PLAN
 Priority:
- P0 — Critical Path (everything downstream depends on this) New Files:
+ P0 â€” Critical Path (everything downstream depends on this) New Files:
 src/state-mapper/graph-builder.js, src/state-mapper/state-differ.js, src/state-mapper/xstate-export.jsDependencies:
 xstate@^5, graphlib, diffTests Required:
  Build graph fromsample trace, verify all states reachable, export valid XState JSON
@@ -339,7 +339,7 @@ FC/FS/OS/MAR/VS use pull date
  in filename
 Lab/Rad/WO/COC/SW/PPN/Therapy use document date
  in filename
-SW is "all time" — no date filter
+SW is "all time" â€” no date filter
 Labs/Rad/COC/PPN are "since last CU"
 Combine order: FC first, FS second, then alphabetical by doc class
 
@@ -370,7 +370,7 @@ yamlrules:-id: ADMIN_NOTE_FIRSTtype: sequencingdescription: Admin note must be c
 B-007: Supervisor UI Dashboard (P2)
 A real-time web dashboard showing: current step, confidence level, collected documents,missing documents, intervention requests, and one-click human override. Deferred to Phase C.
 B-008: Human Demo to Skill Compiler (P3)
-Transforms a completed workflow recording into an executable skill spec (YAML/JSON) withstate machine, validators, required inputs, failure modes, and escalation prompts. Deferred toPhase D — requires runtime to be operational first.
+Transforms a completed workflow recording into an executable skill spec (YAML/JSON) withstate machine, validators, required inputs, failure modes, and escalation prompts. Deferred toPhase D â€” requires runtime to be operational first.
 Phase A (Immediate) Items
 B-001: Action-State Recorder Chrome Extension (MVP)
 B-002: UI State Mapper (core graph builder)
@@ -406,13 +406,13 @@ Risk:
  Multi-trace merge withconfidence scoring
 
 -------------------------------------------------------------
-STEP 3: BUILD PROTOCOL REPORT — The WC+RS BibleConstruction
+STEP 3: BUILD PROTOCOL REPORT â€” The WC+RS BibleConstruction
 -------------------------------------------------------------
 Build Report
 Build Date:
  March 30, 2026 Builder:
  Claude (Opus 4.6) Project:
- WC+RS Bible — Complete BuildSpecification Protocol Used:
+ WC+RS Bible â€” Complete BuildSpecification Protocol Used:
  BUILD_PROTOCOL_V1.md
 Build Summary
 Total development time: Full session
@@ -422,16 +422,16 @@ Phases planned: 4 (Alpha . Beta . RC . v1.0)
 
 Existing Solutions Recon
 Solution Found What It Does Can It Help? Decision 
-PlaywrightCodegen Records browser actions,generates test scripts YES — foundation foraction recording USE as base layerfor recorder 
-Chrome DevToolsRecorder Records user flows as JSON,replays YES — data formatalignment USE JSON formatas reference 
-XState v5 State machine/statechartlibrary with visualizer YES — core of UI StateMapper USE as primarystate engine 
-Wildfire (ChromeExtension) Record & replay browseractions PARTIAL — too simplisticfor enterprise UIs SKIP — buildcustom 
-Selenium IDE Open-source record/replay NO — doesn't capture state,only actions SKIP 
-BugBug Full record-replay platform PARTIAL — SaaS, not self-hosted SKIP — need localcontrol 
-Replay.io Deterministic browserrecording PARTIAL — heavyweight,not extensible for our use SKIP 
-pixelmatch Pixel-level image comparison YES — PDF visual diff USE for PDFVerifier 
-pdf-parse Extract text from PDFs YES — PDF text extraction USE for PDFVerifier 
-Playwright TraceViewer DOM snapshots + network +screenshots per action YES — referencearchitecture USE patterns forrecorder design 
+PlaywrightCodegen Records browser actions,generates test scripts YES â€” foundation foraction recording USE as base layerfor recorder 
+Chrome DevToolsRecorder Records user flows as JSON,replays YES â€” data formatalignment USE JSON formatas reference 
+XState v5 State machine/statechartlibrary with visualizer YES â€” core of UI StateMapper USE as primarystate engine 
+Wildfire (ChromeExtension) Record & replay browseractions PARTIAL â€” too simplisticfor enterprise UIs SKIP â€” buildcustom 
+Selenium IDE Open-source record/replay NO â€” doesn't capture state,only actions SKIP 
+BugBug Full record-replay platform PARTIAL â€” SaaS, not self-hosted SKIP â€” need localcontrol 
+Replay.io Deterministic browserrecording PARTIAL â€” heavyweight,not extensible for our use SKIP 
+pixelmatch Pixel-level image comparison YES â€” PDF visual diff USE for PDFVerifier 
+pdf-parse Extract text from PDFs YES â€” PDF text extraction USE for PDFVerifier 
+Playwright TraceViewer DOM snapshots + network +screenshots per action YES â€” referencearchitecture USE patterns forrecorder design 
 
 Tool Audit Summary
 Relevant external tools reviewed: 10
@@ -452,7 +452,7 @@ THE BIBLE: COMPLETE BUILD SPECIFICATION
 -------------------------------------------------------------
 ARCHITECTURE OVERVIEW
 System Architecture
-+------------------------------------------------------------------+¦                    WC+RS SYSTEM ARCHITECTURE                     ¦+------------------------------------------------------------------¦¦                                                                  ¦¦  +-----------------+     +-----------------+                   ¦¦  ¦  CHROME BROWSER  ¦     ¦  CHROME EXTENSION¦                   ¦¦  ¦  (PointClickCare)¦----.¦  (Action-State   ¦                   ¦¦  ¦                  ¦     ¦   Recorder)      ¦                   ¦¦  +-----------------+     +------------------+                   ¦¦                                    ¦                             ¦¦                          workflow_trace.json                     ¦¦                                    ¦                             ¦¦                    +---------------+---------------+             ¦¦                    .               .               .             ¦¦  +------------------+  +---------------+  +--------------+     ¦¦  ¦  UI STATE MAPPER  ¦  ¦  SELECTOR     ¦  ¦  PDF FIDELITY¦     ¦¦  ¦  (XState Graph)   ¦  ¦  RESILIENCE   ¦  ¦  VERIFIER    ¦     ¦¦  ¦                   ¦  ¦  ENGINE       ¦  ¦              ¦     ¦¦  +-------------------+  +---------------+  +--------------+     ¦¦           ¦                     ¦                  ¦             ¦¦           .                     .                  .             ¦¦  +---------------------------------------------------------+    ¦¦  ¦              CU COPILOT RUNTIME                          ¦    ¦¦  ¦  +----------+  +--------------+  +------------------+  ¦    ¦¦  ¦  ¦  RULES   ¦  ¦  DOC SEMANTICS¦  ¦  EXECUTION       ¦  ¦    ¦¦  ¦  ¦  ENGINE  ¦  ¦  EXTRACTOR   ¦  ¦  ENGINE           ¦  ¦    ¦¦  ¦  +----------+  +--------------+  +------------------+  ¦    ¦¦  +---------------------------------------------------------+    ¦¦                             ¦                                    ¦¦                             .                                    ¦¦  +---------------------------------------------------------+    ¦¦  ¦              SUPERVISOR UI DASHBOARD                      ¦    ¦¦  ¦  [Current Step] [Confidence] [Docs Collected] [Override] ¦    ¦¦  +---------------------------------------------------------+    ¦¦                                                                  ¦+------------------------------------------------------------------+
++------------------------------------------------------------------+Â¦                    WC+RS SYSTEM ARCHITECTURE                     Â¦+------------------------------------------------------------------Â¦Â¦                                                                  Â¦Â¦  +-----------------+     +-----------------+                   Â¦Â¦  Â¦  CHROME BROWSER  Â¦     Â¦  CHROME EXTENSIONÂ¦                   Â¦Â¦  Â¦  (PointClickCare)Â¦----.Â¦  (Action-State   Â¦                   Â¦Â¦  Â¦                  Â¦     Â¦   Recorder)      Â¦                   Â¦Â¦  +-----------------+     +------------------+                   Â¦Â¦                                    Â¦                             Â¦Â¦                          workflow_trace.json                     Â¦Â¦                                    Â¦                             Â¦Â¦                    +---------------+---------------+             Â¦Â¦                    .               .               .             Â¦Â¦  +------------------+  +---------------+  +--------------+     Â¦Â¦  Â¦  UI STATE MAPPER  Â¦  Â¦  SELECTOR     Â¦  Â¦  PDF FIDELITYÂ¦     Â¦Â¦  Â¦  (XState Graph)   Â¦  Â¦  RESILIENCE   Â¦  Â¦  VERIFIER    Â¦     Â¦Â¦  Â¦                   Â¦  Â¦  ENGINE       Â¦  Â¦              Â¦     Â¦Â¦  +-------------------+  +---------------+  +--------------+     Â¦Â¦           Â¦                     Â¦                  Â¦             Â¦Â¦           .                     .                  .             Â¦Â¦  +---------------------------------------------------------+    Â¦Â¦  Â¦              CU COPILOT RUNTIME                          Â¦    Â¦Â¦  Â¦  +----------+  +--------------+  +------------------+  Â¦    Â¦Â¦  Â¦  Â¦  RULES   Â¦  Â¦  DOC SEMANTICSÂ¦  Â¦  EXECUTION       Â¦  Â¦    Â¦Â¦  Â¦  Â¦  ENGINE  Â¦  Â¦  EXTRACTOR   Â¦  Â¦  ENGINE           Â¦  Â¦    Â¦Â¦  Â¦  +----------+  +--------------+  +------------------+  Â¦    Â¦Â¦  +---------------------------------------------------------+    Â¦Â¦                             Â¦                                    Â¦Â¦                             .                                    Â¦Â¦  +---------------------------------------------------------+    Â¦Â¦  Â¦              SUPERVISOR UI DASHBOARD                      Â¦    Â¦Â¦  Â¦  [Current Step] [Confidence] [Docs Collected] [Override] Â¦    Â¦Â¦  +---------------------------------------------------------+    Â¦Â¦                                                                  Â¦+------------------------------------------------------------------+
 Technology Stack
 LayerLayer TechnologyTechnology WhyWhy 
 BrowserExtension Chrome Manifest V3 + ChromeDevTools Protocol Direct browser access, iframe handling,network capture 
@@ -465,7 +465,7 @@ Data Format JSON (primary), YAML (rulesconfig) Universal, human-readable, AI-par
 Language TypeScript (Node.js) Type safety, Playwright/XState ecosystemalignment 
 
 Project Structure
-wcrs/+-- extension/                    # Chrome Extension (Module 1)¦   +-- manifest.json¦   +-- background.js             # Service worker¦   +-- content.js                # DOM observer¦   +-- recorder.js               # Core recording logic¦   +-- popup.html                # Extension UI¦   +-- popup.js¦   +-- lib/¦       +-- dom-capture.js        # DOM snapshot & selector extraction¦       +-- network-monitor.js    # XHR/fetch interception¦       +-- screenshot-capture.js # Page screenshots¦       +-- frame-tracker.js      # iframe navigation tracking¦+-- src/¦   +-- state-mapper/             # Module 2: UI State Mapper¦   ¦   +-- graph-builder.ts      # Trace . state graph¦   ¦   +-- state-differ.ts       # Merge multiple traces¦   ¦   +-- xstate-export.ts      # Export to XState v5 JSON¦   ¦   +-- confidence-scorer.ts  # Edge confidence calculation¦   ¦   +-- recovery-injector.ts  # Add recovery states/edges¦   ¦¦   +-- selector-engine/          # Module 3: Selector Resilience¦   ¦   +-- generator.ts          # Multi-strategy selector generation¦   ¦   +-- ranker.ts             # Resilience scoring¦   ¦   +-- validator.ts          # Live selector validation¦   ¦   +-- strategies/¦   ¦       +-- aria-role.ts¦   ¦       +-- test-id.ts¦   ¦       +-- text-content.ts¦   ¦       +-- attribute.ts¦   ¦       +-- css-structural.ts¦   ¦¦   +-- pdf-verifier/             # Module 4: PDF Fidelity¦   ¦   +-- extractor.ts          # PDF metadata/text extraction¦   ¦   +-- rasterizer.ts         # PDF . images¦   ¦   +-- comparator.ts         # Visual + text diff¦   ¦   +-- reporter.ts           # Fidelity report generation¦   ¦¦   +-- doc-extractor/            # Module 5: Document Semantics¦   ¦   +-- classifier.ts         # Doc type identification¦   ¦   +-- validator.ts          # Naming convention check¦   ¦   +-- packet-builder.ts     # CU packet assembly¦   ¦   +-- dedup.ts              # Duplicate detection¦   ¦¦   +-- rules-engine/             # Module 6: Business Rules¦   ¦   +-- engine.ts             # Rule evaluation core¦   ¦   +-- loader.ts             # YAML rule loading¦   ¦   +-- evaluator.ts          # Condition evaluation¦   ¦   +-- rules/¦   ¦       +-- cu-rules.yaml     # CU-specific rules¦   ¦¦   +-- runtime/                  # CU Copilot Runtime¦   ¦   +-- executor.ts           # State machine execution via Playwright¦   ¦   +-- state-verifier.ts     # DOM state assertion engine¦   ¦   +-- recovery-handler.ts   # Off-script recovery logic¦   ¦   +-- reporter.ts           # Execution log/status¦   ¦¦   +-- supervisor/               # Supervisor UI (Phase C)¦       +-- server.ts             # WebSocket server¦       +-- dashboard/            # React app¦+-- config/¦   +-- default.yaml              # Default configuration¦   +-- cu-workflow.yaml          # CU-specific config¦+-- tests/¦   +-- unit/¦   +-- integration/¦   +-- fixtures/                 # Sample traces, PDFs, etc.¦+-- docs/¦   +-- BIBLE.md                  # This document¦   +-- ARCHITECTURE.md¦   +-- API.md¦+-- package.json+-- tsconfig.json+-- README.md
+wcrs/+-- extension/                    # Chrome Extension (Module 1)Â¦   +-- manifest.jsonÂ¦   +-- background.js             # Service workerÂ¦   +-- content.js                # DOM observerÂ¦   +-- recorder.js               # Core recording logicÂ¦   +-- popup.html                # Extension UIÂ¦   +-- popup.jsÂ¦   +-- lib/Â¦       +-- dom-capture.js        # DOM snapshot & selector extractionÂ¦       +-- network-monitor.js    # XHR/fetch interceptionÂ¦       +-- screenshot-capture.js # Page screenshotsÂ¦       +-- frame-tracker.js      # iframe navigation trackingÂ¦+-- src/Â¦   +-- state-mapper/             # Module 2: UI State MapperÂ¦   Â¦   +-- graph-builder.ts      # Trace . state graphÂ¦   Â¦   +-- state-differ.ts       # Merge multiple tracesÂ¦   Â¦   +-- xstate-export.ts      # Export to XState v5 JSONÂ¦   Â¦   +-- confidence-scorer.ts  # Edge confidence calculationÂ¦   Â¦   +-- recovery-injector.ts  # Add recovery states/edgesÂ¦   Â¦Â¦   +-- selector-engine/          # Module 3: Selector ResilienceÂ¦   Â¦   +-- generator.ts          # Multi-strategy selector generationÂ¦   Â¦   +-- ranker.ts             # Resilience scoringÂ¦   Â¦   +-- validator.ts          # Live selector validationÂ¦   Â¦   +-- strategies/Â¦   Â¦       +-- aria-role.tsÂ¦   Â¦       +-- test-id.tsÂ¦   Â¦       +-- text-content.tsÂ¦   Â¦       +-- attribute.tsÂ¦   Â¦       +-- css-structural.tsÂ¦   Â¦Â¦   +-- pdf-verifier/             # Module 4: PDF FidelityÂ¦   Â¦   +-- extractor.ts          # PDF metadata/text extractionÂ¦   Â¦   +-- rasterizer.ts         # PDF . imagesÂ¦   Â¦   +-- comparator.ts         # Visual + text diffÂ¦   Â¦   +-- reporter.ts           # Fidelity report generationÂ¦   Â¦Â¦   +-- doc-extractor/            # Module 5: Document SemanticsÂ¦   Â¦   +-- classifier.ts         # Doc type identificationÂ¦   Â¦   +-- validator.ts          # Naming convention checkÂ¦   Â¦   +-- packet-builder.ts     # CU packet assemblyÂ¦   Â¦   +-- dedup.ts              # Duplicate detectionÂ¦   Â¦Â¦   +-- rules-engine/             # Module 6: Business RulesÂ¦   Â¦   +-- engine.ts             # Rule evaluation coreÂ¦   Â¦   +-- loader.ts             # YAML rule loadingÂ¦   Â¦   +-- evaluator.ts          # Condition evaluationÂ¦   Â¦   +-- rules/Â¦   Â¦       +-- cu-rules.yaml     # CU-specific rulesÂ¦   Â¦Â¦   +-- runtime/                  # CU Copilot RuntimeÂ¦   Â¦   +-- executor.ts           # State machine execution via PlaywrightÂ¦   Â¦   +-- state-verifier.ts     # DOM state assertion engineÂ¦   Â¦   +-- recovery-handler.ts   # Off-script recovery logicÂ¦   Â¦   +-- reporter.ts           # Execution log/statusÂ¦   Â¦Â¦   +-- supervisor/               # Supervisor UI (Phase C)Â¦       +-- server.ts             # WebSocket serverÂ¦       +-- dashboard/            # React appÂ¦+-- config/Â¦   +-- default.yaml              # Default configurationÂ¦   +-- cu-workflow.yaml          # CU-specific configÂ¦+-- tests/Â¦   +-- unit/Â¦   +-- integration/Â¦   +-- fixtures/                 # Sample traces, PDFs, etc.Â¦+-- docs/Â¦   +-- BIBLE.md                  # This documentÂ¦   +-- ARCHITECTURE.mdÂ¦   +-- API.mdÂ¦+-- package.json+-- tsconfig.json+-- README.md
 DETAILED MODULE SPECIFICATIONS
 MODULE 1: Action-State Recorder (Chrome Extension)
 Implementation Priority:
@@ -500,9 +500,9 @@ Implementation Priority:
 typescript// src/pdf-verifier/comparator.tsimportpdfParsefrom'pdf-parse';importpixelmatchfrom'pixelmatch';import{ execSync }from'child_process';interfaceFidelityReport{  result:'PASS'|'FAIL'|'WARN';  overall_similarity:number;  checks:{    page_count_match:boolean;    text_similarity:number;    visual_similarity:number;    orientation_match:boolean;};  discrepancies:Discrepancy[];}asyncfunctioncomparePDFs(  generatedPath:string,  referencePath:string,  tolerance:number=0.05// 5% visual diff allowed):Promise<FidelityReport>{// 1. Extract textconst genData =awaitpdfParse(fs.readFileSync(generatedPath));const refData =awaitpdfParse(fs.readFileSync(referencePath));const pageCountMatch = genData.numpages=== refData.numpages;const textSimilarity =calculateTextSimilarity(genData.text, refData.text);// 2. Rasterize both PDFs to imagesexecSync(`pdftoppm -png -r 150 "${generatedPath}" /tmp/gen_page`);execSync(`pdftoppm -png -r 150 "${referencePath}" /tmp/ref_page`);// 3. Visual comparison per pagelet totalPixels =0;let diffPixels =0;const discrepancies:Discrepancy[]=[];for(let page =1; page <=Math.max(genData.numpages, refData.numpages); page++){const genImg =PNG.sync.read(fs.readFileSync(`/tmp/gen_page-${page}.png`));const refImg =PNG.sync.read(fs.readFileSync(`/tmp/ref_page-${page}.png`));if(genImg.width!== refImg.width|| genImg.height!== refImg.height){      discrepancies.push({ page, type:'dimension_mismatch',        description:`Gen: ${genImg.width}x${genImg.height}, Ref: ${refImg.width}x${continue;}const diff =newPNG({ width: genImg.width, height: genImg.height});const numDiff =pixelmatch(genImg.data, refImg.data, diff.data,      genImg.width, genImg.height,{ threshold:0.1});    totalPixels += genImg.width* genImg.height;    diffPixels += numDiff;if(numDiff /(genImg.width* genImg.height)> tolerance){      discrepancies.push({ page, type:'visual_diff',        description:`${(numDiff /(genImg.width* genImg.height)*100).toFixed(1)}}}const visualSimilarity =1-(diffPixels / totalPixels);return{    result:(pageCountMatch && textSimilarity >0.95&& visualSimilarity >(1- tole:(textSimilarity >0.80)?'WARN':'FAIL',    overall_similarity:(textSimilarity + visualSimilarity)/2,    checks:{      page_count_match: pageCountMatch,      text_similarity: textSimilarity,      visual_similarity: visualSimilarity,      orientation_match:true,// checked during rasterization},    discrepancies};}
 MODULE 5 & 6: Document Semantics Extractor + Rules Engine
 These modules are configuration-driven. The Rules Engine evaluates YAML rules againstdocument metadata from the Extractor.
-typescript// src/rules-engine/engine.tsimportyamlfrom'js-yaml';interfaceRule{  id:string;  type:'sequencing'|'date_filter'|'naming'|'ordering'|'conditional';  description:string;  condition:string;[key:string]:any;}interfaceRuleEvaluationResult{  rule_id:string;  passed:boolean;  message:string;}classRulesEngine{private rules:Rule[];constructor(rulesPath:string){const raw = fs.readFileSync(rulesPath,'utf-8');const parsed = yaml.load(raw)as{ rules:Rule[]};this.rules= parsed.rules;}evaluateDocument(doc:DocumentMetadata, context:WorkflowContext):RuleEvaluationRreturnthis.rules.filter(rule =>this.ruleApplies(rule, doc)).map(rule =>this.evaluateRule(rule, doc, context));}privateevaluateRule(rule:Rule, doc:DocumentMetadata, ctx:WorkflowContext):Rulswitch(rule.type){case'naming':returnthis.evaluateNaming(rule, doc, ctx);case'date_filter':returnthis.evaluateDateFilter(rule, doc, ctx);case'sequencing':returnthis.evaluateSequencing(rule, doc, ctx);default:return{ rule_id: rule.id, passed:true, message:'Unknown rule type — skipp}}privateevaluateNaming(rule:Rule, doc:DocumentMetadata, ctx:WorkflowContext):Rconst expectedDate = rule.filename_date==='pull_date'? ctx.pull_date: doc.doconst hasCorrectDate = doc.filename.includes(formatDate(expectedDate));return{      rule_id: rule.id,      passed: hasCorrectDate,      message: hasCorrectDate?`Naming correct: uses ${rule.filename_date}`:`NAMING ERROR: Expected ${rule.filename_date} (${formatDate(expectedDate)}};}privateevaluateDateFilter(rule:Rule, doc:DocumentMetadata, ctx:WorkflowContextif(rule.filter==='none')return{ rule_id: rule.id, passed:true, message:'Nconst docDate =newDate(doc.document_date);const lastCU =newDate(ctx.last_cu_date);const passed = docDate >= lastCU;return{      rule_id: rule.id,      passed,      message: passed?`Date filter passed: ${doc.document_date} >= ${ctx.last_cu_date}`:`DATE ERROR: Document ${doc.document_date} is before last CU ${ctx.last_cu};}}
+typescript// src/rules-engine/engine.tsimportyamlfrom'js-yaml';interfaceRule{  id:string;  type:'sequencing'|'date_filter'|'naming'|'ordering'|'conditional';  description:string;  condition:string;[key:string]:any;}interfaceRuleEvaluationResult{  rule_id:string;  passed:boolean;  message:string;}classRulesEngine{private rules:Rule[];constructor(rulesPath:string){const raw = fs.readFileSync(rulesPath,'utf-8');const parsed = yaml.load(raw)as{ rules:Rule[]};this.rules= parsed.rules;}evaluateDocument(doc:DocumentMetadata, context:WorkflowContext):RuleEvaluationRreturnthis.rules.filter(rule =>this.ruleApplies(rule, doc)).map(rule =>this.evaluateRule(rule, doc, context));}privateevaluateRule(rule:Rule, doc:DocumentMetadata, ctx:WorkflowContext):Rulswitch(rule.type){case'naming':returnthis.evaluateNaming(rule, doc, ctx);case'date_filter':returnthis.evaluateDateFilter(rule, doc, ctx);case'sequencing':returnthis.evaluateSequencing(rule, doc, ctx);default:return{ rule_id: rule.id, passed:true, message:'Unknown rule type â€” skipp}}privateevaluateNaming(rule:Rule, doc:DocumentMetadata, ctx:WorkflowContext):Rconst expectedDate = rule.filename_date==='pull_date'? ctx.pull_date: doc.doconst hasCorrectDate = doc.filename.includes(formatDate(expectedDate));return{      rule_id: rule.id,      passed: hasCorrectDate,      message: hasCorrectDate?`Naming correct: uses ${rule.filename_date}`:`NAMING ERROR: Expected ${rule.filename_date} (${formatDate(expectedDate)}};}privateevaluateDateFilter(rule:Rule, doc:DocumentMetadata, ctx:WorkflowContextif(rule.filter==='none')return{ rule_id: rule.id, passed:true, message:'Nconst docDate =newDate(doc.document_date);const lastCU =newDate(ctx.last_cu_date);const passed = docDate >= lastCU;return{      rule_id: rule.id,      passed,      message: passed?`Date filter passed: ${doc.document_date} >= ${ctx.last_cu_date}`:`DATE ERROR: Document ${doc.document_date} is before last CU ${ctx.last_cu};}}
 ROADMAP & SPRINT PLAN
-Sprint 1: Foundation (Week 1-2) — ALPHA
+Sprint 1: Foundation (Week 1-2) â€” ALPHA
 Goal:
  Record a CU workflow and produce a basic state graph
 Task Module Est. Hours Dependencies 
@@ -532,7 +532,7 @@ Sprint 1 Verification:
 
  iframe navigation tracked correctly
 
-Sprint 2: Core Intelligence (Week 3-4) — BETA
+Sprint 2: Core Intelligence (Week 3-4) â€” BETA
 Goal:
  Multi-trace merge, confidence scoring, PDF verification
 Task Module Est. Hours Dependencies 
@@ -560,7 +560,7 @@ Sprint 2 Verification:
 
  Documents classified by type with naming validation
 
-Sprint 3: CU Copilot Runtime (Week 5-6) — RC
+Sprint 3: CU Copilot Runtime (Week 5-6) â€” RC
 Goal:
  Execute a CU workflow from the state graph via Playwright
 Task Module Est. Hours Dependencies 
@@ -588,7 +588,7 @@ Sprint 3 Verification:
 
  Execution log shows step-by-step progress with confidence
 
-Sprint 4: Supervisor & Polish (Week 7-8) — v1.0
+Sprint 4: Supervisor & Polish (Week 7-8) â€” v1.0
 Goal:
  Human oversight dashboard, end-to-end CU execution
 Task Module Est. Hours Dependencies 
@@ -633,12 +633,12 @@ PCC URLs contain patient-specific parameters
 2. PDF Fidelity is Make-or-Break
 Playwright's page.pdf() uses the Chromium print engine, NOT the OS print dialog.
 For CU documents, visual fidelity matters because insurance companies review them.
-The 2-up print format for OS and MAR/TAR is especially tricky — verify page layout.
+The 2-up print format for OS and MAR/TAR is especially tricky â€” verify page layout.
 Always compare against a human-approved "Alpha" PDF for each document type.
 
 3. State Identity is the Hardest Problem
 The same URL can represent different states (e.g., different tabs selected on same page).
-DOM signature hashing must be selective — hash key navigation elements, not dynamiccontent.
+DOM signature hashing must be selective â€” hash key navigation elements, not dynamiccontent.
 Two recordings of the same workflow may produce slightly different DOM states due totiming.
 
 4. Recovery is a First-Class Citizen
@@ -657,7 +657,7 @@ Regression tests:
  Compare output against known-good "Alpha" traces
 
 -------------------------------------------------------------
-STEP 4: BUG HUNT PROTOCOL REPORT — On the Bible
+STEP 4: BUG HUNT PROTOCOL REPORT â€” On the Bible
 -------------------------------------------------------------
 Bug Hunt Report
 Hunt Date:
@@ -666,8 +666,8 @@ Hunt Date:
  WC+RS Bible v1.0
 Bug Hunt Coverage Plan
 Target:
- The Bible document itself — completeness, accuracy, buildability Symptom:
- N/A —proactive quality hunt before handoff
+ The Bible document itself â€” completeness, accuracy, buildability Symptom:
+ N/A â€”proactive quality hunt before handoff
 Bugs Found:
 BugIDBugIDBugID SeveritySeveritySeverity LocationLocationLocation SymptomSymptomSymptom Root CauseRoot CauseRoot Cause FixFixFix VerifiedVerifiedVerified 
 BH-001 HIGH Module 1Spec No handling forauthentication/loginstate Recorder assumesalready logged in;no login statecapture Add loginstate handlingnote and authpersistencevia Playwrightcontext . 
@@ -704,7 +704,7 @@ Added WebSocket message format specification
 Clarified DOM signature hashing in state identity explanation
 
 -------------------------------------------------------------
-STEP 5: OPTIMIZED BIBLE — Fixes & Enhancements Applied
+STEP 5: OPTIMIZED BIBLE â€” Fixes & Enhancements Applied
 -------------------------------------------------------------
 OPTIMIZATION CHANGELOG
 The following optimizations were applied based on Bug Hunt findings and final review:
@@ -719,7 +719,7 @@ Session Persistence:
 Session Expiry Detection:
  If any page returns a login redirect, pause workflow and requestre-authentication
 Never store credentials in code/config
- — session tokens only
+ â€” session tokens only
 
 typescript// runtime/auth-handler.tsasyncfunctionensureAuthenticated(page:Page, authStatePath:string):Promise<booletry{await page.goto('https://www31.pointclickcare.com/home.jsp',{ waitUntil:'netwoconst isLoggedIn =await page.locator('#user-menu').isVisible({ timeout:5000})if(!isLoggedIn){console.log('Session expired. Requesting re-authentication...');// Pause and wait for human to log inawait page.pause();// Playwright Inspector opens for manual login// Save new session stateawait page.context().storageState({ path: authStatePath });}returntrue;}catch{returnfalse;}}
 Fix BH-004: Conditional Document Rules
