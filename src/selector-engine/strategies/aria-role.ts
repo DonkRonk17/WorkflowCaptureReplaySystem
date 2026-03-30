@@ -79,22 +79,44 @@ export function generateAriaSelectors(element: DOMElementInfo): SelectorCandidat
   const name = pickAccessibleName(element);
 
   if (name) {
-    // Full role + name selector — highest resilience
-    candidates.push({
-      strategy: 'role',
-      selector: `[role="${role}"][aria-label="${escapeCss(name)}"]`,
-      resilience: 0.95,
-      playwright_locator: `page.getByRole('${role}', { name: '${escapeJs(name)}' })`
-    });
+    const hasAriaLabel = !!(element.ariaLabel && element.ariaLabel.length);
 
-    // Alternative: Playwright getByRole without explicit role attribute requirement
-    if (role !== 'textbox' && role !== 'generic') {
+    if (hasAriaLabel) {
+      // Full role + name selector when aria-label attribute is present — highest resilience
       candidates.push({
         strategy: 'role',
-        selector: `${roleToTag(role, element.type)}[aria-label="${escapeCss(name)}"]`,
-        resilience: 0.88,
+        selector: `[role="${role}"][aria-label="${escapeCss(name)}"]`,
+        resilience: 0.95,
         playwright_locator: `page.getByRole('${role}', { name: '${escapeJs(name)}' })`
       });
+
+      // Alternative: tag-based selector with aria-label
+      if (role !== 'textbox' && role !== 'generic') {
+        candidates.push({
+          strategy: 'role',
+          selector: `${roleToTag(role, element.type)}[aria-label="${escapeCss(name)}"]`,
+          resilience: 0.88,
+          playwright_locator: `page.getByRole('${role}', { name: '${escapeJs(name)}' })`
+        });
+      }
+    } else {
+      // Accessible name comes from visible text / placeholder, not aria-label.
+      // Use :has-text() selectors that match on visible text.
+      candidates.push({
+        strategy: 'role',
+        selector: `[role="${role}"]:has-text("${escapeCss(name)}")`,
+        resilience: 0.95,
+        playwright_locator: `page.getByRole('${role}', { name: '${escapeJs(name)}' })`
+      });
+
+      if (role !== 'textbox' && role !== 'generic') {
+        candidates.push({
+          strategy: 'role',
+          selector: `${roleToTag(role, element.type)}:has-text("${escapeCss(name)}")`,
+          resilience: 0.88,
+          playwright_locator: `page.getByRole('${role}', { name: '${escapeJs(name)}' })`
+        });
+      }
     }
   } else {
     // Role only — lower resilience (many elements may share same role)

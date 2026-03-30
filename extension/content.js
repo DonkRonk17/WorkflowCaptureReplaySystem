@@ -78,35 +78,73 @@
 
   // ── Selector Generation (inline for content script context) ──────────────
 
+  function escapeAttrValue(value) {
+    if (value == null) return '';
+    return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
   function generateSelectors(element) {
     const candidates = [];
 
     // Strategy 1: ARIA role
     const role = element.getAttribute('role') || inferAriaRole(element);
-    const ariaLabel = element.getAttribute('aria-label') || element.getAttribute('aria-labelledby');
+
+    // Resolve accessible name: prefer aria-label, then resolve aria-labelledby ID references
+    let ariaName = element.getAttribute('aria-label');
+    if (!ariaName) {
+      const labelledby = element.getAttribute('aria-labelledby');
+      if (labelledby) {
+        ariaName = labelledby
+          .split(/\s+/)
+          .map(id => {
+            const ref = id && document.getElementById(id.trim());
+            return ref ? (ref.textContent || '').trim() : '';
+          })
+          .filter(Boolean)
+          .join(' ') || null;
+      }
+    }
+
     const visibleText = getVisibleText(element);
-    if (role && (ariaLabel || visibleText)) {
-      const name = ariaLabel || visibleText;
-      candidates.push({ strategy: 'role', selector: `[role="${role}"][aria-label="${name}"]`, resilience: 0.95 });
+    if (role && (ariaName || visibleText)) {
+      const name = ariaName || visibleText;
+      const escapedName = escapeAttrValue(name);
+      if (ariaName) {
+        candidates.push({ strategy: 'role', selector: `[role="${role}"][aria-label="${escapedName}"]`, resilience: 0.95 });
+      } else {
+        candidates.push({ strategy: 'role', selector: `[role="${role}"]:has-text("${escapedName}")`, resilience: 0.95 });
+      }
     }
 
-    // Strategy 2: Test ID
-    const testId = element.getAttribute('data-test') || element.getAttribute('data-testid') || element.getAttribute('data-qa');
-    if (testId) {
-      candidates.push({ strategy: 'testId', selector: `[data-test="${testId}"]`, resilience: 0.90 });
+    // Strategy 2: Test ID — track which attribute was actually present
+    const testIdAttr = element.hasAttribute('data-test')
+      ? 'data-test'
+      : element.hasAttribute('data-testid')
+        ? 'data-testid'
+        : element.hasAttribute('data-qa')
+          ? 'data-qa'
+          : null;
+    if (testIdAttr) {
+      const testId = element.getAttribute(testIdAttr);
+      if (testId) {
+        candidates.push({ strategy: 'testId', selector: `[${testIdAttr}="${escapeAttrValue(testId)}"]`, resilience: 0.90 });
+      }
     }
 
-    // Strategy 3: Text content
+    // Strategy 3: Text content — use :has-text() which is Playwright-compatible
     const text = visibleText;
     if (text && text.length < 80) {
       const tag = element.tagName.toLowerCase();
-      candidates.push({ strategy: 'text', selector: `${tag}:contains("${text}")`, resilience: 0.80 });
+      candidates.push({ strategy: 'text', selector: `${tag}:has-text("${escapeAttrValue(text)}")`, resilience: 0.80 });
     }
 
     // Strategy 4: Stable attributes (id, name)
     if (element.id) {
       const stable = !/\d{4,}|[a-f0-9]{8,}/i.test(element.id);
-      candidates.push({ strategy: 'attribute', selector: `#${element.id}`, resilience: stable ? 0.75 : 0.50 });
+      const escapedId = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function')
+        ? CSS.escape(element.id)
+        : element.id;
+      candidates.push({ strategy: 'attribute', selector: `#${escapedId}`, resilience: stable ? 0.75 : 0.50 });
     }
     if (element.name) {
       candidates.push({ strategy: 'attribute', selector: `[name="${element.name}"]`, resilience: 0.70 });

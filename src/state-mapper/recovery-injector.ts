@@ -146,23 +146,7 @@ function buildHumanInterventionState(): XStateNode {
  * A more accurate implementation would use transition analysis.
  */
 function getNextState(stateId: string, machine: StateMachineDefinition): string | null {
-  // Find states reachable from the current state
-  const reachable: string[] = [];
-  for (const [sid, state] of Object.entries(machine.states)) {
-    if (sid === stateId || sid.endsWith('_recovery') || sid === 'human_intervention') continue;
-    if (state.on) {
-      for (const transition of Object.values(state.on)) {
-        const targets = Array.isArray(transition) ? transition : [transition];
-        for (const t of targets) {
-          if (t.target === stateId) {
-            // This state transitions TO stateId, so we need states that stateId goes to
-          }
-        }
-      }
-    }
-  }
-
-  // Simpler: find any state that is a direct successor via transitions
+  // Find the first direct successor state via outgoing transitions
   const current = machine.states[stateId];
   if (current?.on) {
     const targets = Object.values(current.on).flatMap(t => {

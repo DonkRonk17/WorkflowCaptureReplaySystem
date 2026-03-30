@@ -51,6 +51,9 @@ program
       const machine = buildAndExportXState(traces, {
         minConfidence: parseFloat(options.minConfidence),
         normalizeUrlParams: options.normalizeUrls ?? false,
+      }, {
+        machineId: options.machineId,
+        addRecoveryStates: options.recovery !== false,
       });
 
       const outputPath = path.resolve(options.output);

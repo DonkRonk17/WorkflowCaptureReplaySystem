@@ -25,7 +25,7 @@ import type {
   StateMachineDefinition
 } from '../types/index.js';
 
-import { exportToXState } from './xstate-export.js';
+import { exportToXState, type ExportOptions } from './xstate-export.js';
 import { calculateConfidence } from './confidence-scorer.js';
 
 // ── Public API ─────────────────────────────────────────────────────────────
@@ -81,14 +81,16 @@ export function buildGraph(traces: WorkflowTrace[], options: BuildGraphOptions =
  *
  * @param traces - Workflow traces
  * @param options - Build options
+ * @param exportOptions - XState export options (machineId, addRecoveryStates, etc.)
  * @returns XState-compatible StateMachineDefinition
  */
 export function buildAndExportXState(
   traces: WorkflowTrace[],
-  options: BuildGraphOptions = {}
+  options: BuildGraphOptions = {},
+  exportOptions: ExportOptions = {}
 ): StateMachineDefinition {
   const graph = buildGraph(traces, options);
-  return exportToXState(graph);
+  return exportToXState(graph, exportOptions);
 }
 
 // ── Trace Processing ───────────────────────────────────────────────────────
@@ -286,6 +288,7 @@ function buildTransitionKey(from: string, to: string, actionType: string): strin
 
 function generateEventName(action: ActionEvent): string {
   const type = action.action_type.toUpperCase();
-  const text = action.target?.visible_text?.slice(0, 20).replace(/[^A-Z0-9]/gi, '_').toUpperCase() || '';
+  const domTarget = action.target && 'visible_text' in action.target ? action.target : null;
+  const text = domTarget?.visible_text?.slice(0, 20).replace(/[^A-Z0-9]/gi, '_').toUpperCase() || '';
   return text ? `${type}_${text}` : type;
 }

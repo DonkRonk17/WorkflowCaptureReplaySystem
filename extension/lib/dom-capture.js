@@ -110,7 +110,8 @@ export function generateSelectors(element) {
   // ── Strategy 3: Text Content (resilience 0.80) ───────────────────────
   if (visibleText && visibleText.length > 0 && visibleText.length < 80) {
     const tag = element.tagName.toLowerCase();
-    add({ strategy: 'text', selector: `${tag}:contains("${visibleText}")`, resilience: 0.80 });
+    const textForSelector = visibleText.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    add({ strategy: 'text', selector: `${tag}:has-text("${textForSelector}")`, resilience: 0.80 });
   }
 
   // ── Strategy 4a: Stable ID (resilience 0.75 or 0.50) ────────────────

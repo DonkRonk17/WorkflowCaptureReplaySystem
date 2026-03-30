@@ -180,7 +180,9 @@ function buildContext(graph: StateGraph): Record<string, unknown> {
 // ── Initial State Detection ────────────────────────────────────────────────
 
 function findInitialState(graph: StateGraph): string {
-  if (graph.states.size === 0) return 'idle';
+  if (graph.states.size === 0) {
+    throw new Error('Cannot determine initial state: state graph has no states.');
+  }
 
   // The initial state is the one with no incoming transitions
   const hasIncoming = new Set<string>();

@@ -171,6 +171,9 @@ function appendCheckpoint(label, sender) {
     action_type: 'checkpoint',
     annotation: label,
     target: null,
+    input_value: null,
+    state_before: null,
+    state_after: null,
     network_events: []
   });
 }
@@ -184,7 +187,9 @@ function buildTrace() {
     stopped_at: recordingSession.stopped_at,
     target_app: recordingSession.target_app,
     wcrs_version: '1.0.0',
-    actions: recordingSession.actions
+    actions: recordingSession.actions,
+    action_count: recordingSession.actions.length,
+    errors: recordingSession.errors
   };
 }
 
@@ -196,7 +201,8 @@ chrome.windows.onCreated.addListener((window) => {
       seq: null, // assigned in appendAction
       timestamp: new Date().toISOString(),
       action_type: 'popup_open',
-      target: { window_id: window.id },
+      target: null,
+      popup_window_id: window.id,
       state_before: captureMinimalState(),
       state_after: { url: 'pending', title: 'pending' },
       network_events: []

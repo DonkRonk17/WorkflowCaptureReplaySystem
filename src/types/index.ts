@@ -11,8 +11,8 @@ export interface ActionEvent {
   action_type: ActionType;
   target: ActionTarget | null;
   input_value: string | null;
-  state_before: PageState;
-  state_after: PageState;
+  state_before: PageState | null;
+  state_after: PageState | null;
   network_events: NetworkEvent[];
   annotation?: string;         // Human checkpoint label
   duration_ms?: number;
@@ -33,13 +33,35 @@ export type ActionType =
   | 'dialog'
   | 'checkpoint';
 
-export interface ActionTarget {
+export interface DomActionTarget {
   selectors: SelectorCandidate[];
   visible_text: string;
   tag: string;
   frame_path: string[];
   bounding_rect: BoundingRect | null;
 }
+
+/**
+ * Target metadata for non-DOM actions (e.g., browser windows, dialogs).
+ * All fields are optional to accommodate minimal payloads like `{ window_id: ... }`.
+ */
+export interface NonDomActionTarget {
+  /** Identifier of a browser window (e.g., for popup_open / popup_close). */
+  window_id?: number;
+  /** Message shown in a browser dialog (alert/confirm/prompt). */
+  dialog_message?: string;
+  /** Selector array (may be empty) for non-DOM actions that include a partial target. */
+  selectors?: SelectorCandidate[];
+  /** Frame path for actions that originate in a frame context. */
+  frame_path?: string[];
+}
+
+/**
+ * Union of all supported action target shapes.
+ * DOM-backed interactions use {@link DomActionTarget}.
+ * Browser UI / dialog interactions use {@link NonDomActionTarget}.
+ */
+export type ActionTarget = DomActionTarget | NonDomActionTarget;
 
 export interface PageState {
   url: string;
