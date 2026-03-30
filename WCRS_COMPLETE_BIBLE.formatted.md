@@ -1,3 +1,5 @@
+---
+
 # WORKFLOW CAPTURE + REPLAY SYSTEM (WC+RS) —COMPLETE BIBLE
 
 Created: March 30, 2026
@@ -5,31 +7,33 @@ Author: Claude (Opus 4.6) — Commissioned by Logan (MetaphyLLC)
 Protocol Chain: Hunter . Brainstorm . Build . Bug Hunt .Optimize
 Version: 1.0 (Optimized)
 
+---
+
 ## SECTION 0: EXECUTIVE SUMMARY
 
 ## What is WC+RS?
 
-A browser-based enterprise workflow observability and compilation tool thatwatches a human perform a task once, captures the real UI and document behavior, and convertsit into a replayable, validated agent workflow with confidence scoring and human handoff.
+A browser-based enterprise workflow observability and compilation tool that watches a human perform a task once, captures the real UI and document behavior, and converts it into a replayable, validated agent workflow with confidence scoring and human handoff.
 
 ## Why does it exist?
 
 Logan's AI agents (Cael, Forge, Nexus, etc.) already know the steps
-ofcomplex enterprise workflows (like Clinical Updates in PointClickCare). What they lack isreliable perception and execution on hostile enterprise UIs
-where the same visual action mapsto different DOM states, popups, report generators, delays, and printable endpoints.
+of complex enterprise workflows (like Clinical Updates in PointClickCare). What they lack is reliable perception and execution on hostile enterprise UIs
+where the same visual action maps to different DOM states, popups, report generators, delays, and printable endpoints.
 
 ### The Core Insight:
 
-The winning approach is NOT mouse-coordinate replay. It is: humaninteraction . semantic action . app state transition . validation rule . documentartifact check . recovery path
+The winning approach is NOT mouse-coordinate replay. It is: human interaction . semantic action . app state transition . validation rule . document artifact check . recovery path
 
 ### Primary Use Case:
 
-CU (Clinical Update) workflows in PointClickCare — a 15+ step document-heavy insurance submission process with conditional branches, date-scoped filters, mixednaming conventions, popup handlers, and PDF fidelity requirements.
+CU (Clinical Update) workflows in PointClickCare — a 15+ step document-heavy insurance submission process with conditional branches, date-scoped filters, mixed naming conventions, popup handlers, and PDF fidelity requirements.
 
 ### Generalized Use Case:
 
-Any repetitive browser-based insurance, EMR, or portal workflow thatneeds to be taught to an AI agent.
+Any repetitive browser-based insurance, EMR, or portal workflow that needs to be taught to an AI agent.
 
-STEP 1: HUNTER PROTOCOL REPORT — Knowledge Extractionon WC+RS
+STEP 1: HUNTER PROTOCOL REPORT — Knowledge Extraction on WC+RS
 
 Hunt Report
 
@@ -39,13 +43,13 @@ Hunt Report
 
 ### Claude (Opus 4.6) Topic:
 
-### Workflow Capture + ReplaySystem — Full Knowledge Extraction Complexity:
+### Workflow Capture + Replay System — Full Knowledge Extraction Complexity:
 
 Tier 2: Deep Dive
 
 ## Executive Summary
 
-The WC+RS document describes a six-module system designed to bridge the gap betweenhuman demonstration and AI execution of complex browser workflows. The core innovation istreating enterprise web workflows NOT as click sequences but as state machine traversals withvalidation gates. Three critical insights emerged: (1) the system's true value is the UI StateMapper that builds an interaction graph, not the action recorder; (2) PDF fidelity verification is amake-or-break module for the CU use case; (3) the document distinguishes between a runtimesystem and a compiler system, and the runtime must come first.
+The WC+RS document describes a six-module system designed to bridge the gap between human demonstration and AI execution of complex browser workflows. The core innovation is treating enterprise web workflows NOT as click sequences but as state machine traversals with validation gates. Three critical insights emerged: (1) the system's true value is the UI StateMapper that builds an interaction graph, not the action recorder; (2) PDF fidelity verification is amake-or-break module for the CU use case; (3) the document distinguishes between a runtimesystem and a compiler system, and the runtime must come first.
 Key Insights Found
 
 ## # Insight Confidence Verified?
