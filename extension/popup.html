@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WCRS Recorder</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      color: #1a1a2e;
+      background: #f8f9fa;
+    }
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: white;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-logo {
+      width: 24px;
+      height: 24px;
+      background: #e94560;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+      color: white;
+      flex-shrink: 0;
+    }
+    .header-title { font-size: 14px; font-weight: 600; }
+    .header-sub { font-size: 10px; opacity: 0.7; margin-top: 1px; }
+    .content { padding: 16px; }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 14px;
+      width: 100%;
+      justify-content: center;
+    }
+    .status-badge.idle { background: #e8f5e9; color: #2e7d32; }
+    .status-badge.recording { background: #ffebee; color: #c62828; animation: pulse 1.5s infinite; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-badge.idle .status-dot { background: #4caf50; }
+    .status-badge.recording .status-dot { background: #f44336; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 11px; font-weight: 500; color: #666; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .field input {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 12px;
+      background: white;
+      color: #1a1a2e;
+    }
+    .field input:focus { outline: none; border-color: #1a1a2e; }
+    .action-count {
+      background: white;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .count-value { font-size: 22px; font-weight: 700; color: #e94560; }
+    .count-label { font-size: 11px; color: #888; }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 8px;
+    }
+    .btn:last-child { margin-bottom: 0; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-record { background: #e94560; color: white; }
+    .btn-record:hover:not(:disabled) { background: #c73652; }
+    .btn-stop { background: #1a1a2e; color: white; }
+    .btn-stop:hover:not(:disabled) { background: #0d1117; }
+    .btn-checkpoint { background: white; color: #1a1a2e; border: 1.5px solid #ddd; }
+    .btn-checkpoint:hover:not(:disabled) { border-color: #1a1a2e; }
+    .btn-export { background: #0a7ea4; color: white; }
+    .btn-export:hover:not(:disabled) { background: #085d7a; }
+    .checkpoint-section { display: none; }
+    .checkpoint-section.visible { display: block; }
+    .checkpoint-row { display: flex; gap: 6px; margin-bottom: 8px; }
+    .checkpoint-row input { flex: 1; padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
+    .checkpoint-row button { padding: 7px 12px; border: none; background: #e94560; color: white; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .footer { padding: 10px 16px; background: #f0f0f5; border-top: 1px solid #eee; font-size: 10px; color: #aaa; text-align: center; }
+    .toast { display: none; background: #1a1a2e; color: white; padding: 8px 12px; border-radius: 6px; font-size: 11px; margin-bottom: 10px; }
+    .toast.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-logo">WC</div>
+    <div>
+      <div class="header-title">WCRS Recorder</div>
+      <div class="header-sub">Workflow Capture + Replay System</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div id="status-badge" class="status-badge idle">
+      <div class="status-dot"></div>
+      <span id="status-text">Ready to Record</span>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <div id="idle-section">
+      <div class="field">
+        <label>Target Application</label>
+        <input type="text" id="target-app" placeholder="e.g. PointClickCare" value="PointClickCare">
+      </div>
+      <button id="btn-start" class="btn btn-record">⏺ Start Recording</button>
+    </div>
+
+    <div id="recording-section" style="display:none">
+      <div class="action-count">
+        <div>
+          <div class="count-value" id="action-count">0</div>
+          <div class="count-label">Actions Captured</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#888" id="recording-duration">00:00</div>
+          <div style="font-size:10px;color:#aaa">Duration</div>
+        </div>
+      </div>
+
+      <div class="checkpoint-section" id="checkpoint-section">
+        <div class="checkpoint-row">
+          <input type="text" id="checkpoint-label" placeholder="Checkpoint label...">
+          <button id="btn-add-checkpoint">+ Add</button>
+        </div>
+      </div>
+
+      <button id="btn-checkpoint" class="btn btn-checkpoint">📌 Add Checkpoint</button>
+      <button id="btn-stop" class="btn btn-stop">⏹ Stop Recording</button>
+    </div>
+
+    <div id="export-section" style="display:none">
+      <div class="action-count">
+        <div>
+          <div class="count-value" id="final-count">0</div>
+          <div class="count-label">Actions Recorded</div>
+        </div>
+      </div>
+      <button id="btn-export" class="btn btn-export">⬇ Export Trace JSON</button>
+      <button id="btn-new" class="btn btn-record">⏺ New Recording</button>
+    </div>
+  </div>
+
+  <div class="footer">Metaphy LLC &bull; WCRS v1.0</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

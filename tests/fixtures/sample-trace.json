@@ -1,0 +1,148 @@
+{
+  "trace_id": "sample-trace-001",
+  "wcrs_version": "1.0.0",
+  "recorded_at": "2026-03-30T10:00:00.000Z",
+  "stopped_at": "2026-03-30T10:15:00.000Z",
+  "target_app": "PointClickCare",
+  "action_count": 5,
+  "errors": [],
+  "actions": [
+    {
+      "seq": 1,
+      "timestamp": "2026-03-30T10:00:05.000Z",
+      "action_type": "navigate",
+      "target": {
+        "selectors": [],
+        "visible_text": "",
+        "tag": "",
+        "frame_path": ["main"],
+        "bounding_rect": null
+      },
+      "input_value": null,
+      "state_before": {
+        "url": "https://www31.pointclickcare.com/login",
+        "title": "Login - PointClickCare",
+        "dom_snapshot_hash": "a1b2c3d4"
+      },
+      "state_after": {
+        "url": "https://www31.pointclickcare.com/admin/client/clientlist.jsp",
+        "title": "Patient List - PointClickCare",
+        "dom_snapshot_hash": "e5f6a7b8"
+      },
+      "network_events": []
+    },
+    {
+      "seq": 2,
+      "timestamp": "2026-03-30T10:01:30.000Z",
+      "action_type": "click",
+      "target": {
+        "selectors": [
+          { "strategy": "role", "selector": "[role=\"link\"][aria-label=\"John Doe\"]", "resilience": 0.95 },
+          { "strategy": "text", "selector": "a:has-text(\"John Doe\")", "resilience": 0.80 },
+          { "strategy": "attribute", "selector": "#patient-row-123", "resilience": 0.50 }
+        ],
+        "visible_text": "John Doe",
+        "tag": "a",
+        "frame_path": ["main", "iframe[clientlist]"],
+        "bounding_rect": { "x": 200, "y": 350, "w": 150, "h": 24 }
+      },
+      "input_value": null,
+      "state_before": {
+        "url": "https://www31.pointclickcare.com/admin/client/clientlist.jsp",
+        "title": "Patient List - PointClickCare",
+        "dom_snapshot_hash": "e5f6a7b8"
+      },
+      "state_after": {
+        "url": "https://www31.pointclickcare.com/admin/client/viewClient.jsp?ESOLclientid=12345",
+        "title": "John Doe - Patient Profile",
+        "dom_snapshot_hash": "c1d2e3f4"
+      },
+      "network_events": [
+        {
+          "request_id": "req-001",
+          "url": "https://www31.pointclickcare.com/api/client/12345",
+          "method": "GET",
+          "status": 200,
+          "content_type": "application/json",
+          "timestamp": "2026-03-30T10:01:31.000Z",
+          "is_report_endpoint": false,
+          "endpoint_type": "general"
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "timestamp": "2026-03-30T10:02:00.000Z",
+      "action_type": "checkpoint",
+      "annotation": "Patient profile loaded — beginning CU workflow",
+      "target": null,
+      "input_value": null,
+      "state_before": null,
+      "state_after": null,
+      "network_events": []
+    },
+    {
+      "seq": 4,
+      "timestamp": "2026-03-30T10:02:15.000Z",
+      "action_type": "click",
+      "target": {
+        "selectors": [
+          { "strategy": "role", "selector": "[role=\"button\"][aria-label=\"Order Summary Report\"]", "resilience": 0.95 },
+          { "strategy": "testId", "selector": "[data-test=\"btn-order-summary\"]", "resilience": 0.90 },
+          { "strategy": "text", "selector": "button:has-text(\"Order Summary Report\")", "resilience": 0.80 }
+        ],
+        "visible_text": "Order Summary Report",
+        "tag": "button",
+        "frame_path": ["main", "iframe[content]"],
+        "bounding_rect": { "x": 842, "y": 311, "w": 180, "h": 36 }
+      },
+      "input_value": null,
+      "state_before": {
+        "url": "https://www31.pointclickcare.com/admin/client/viewClient.jsp?ESOLclientid=12345",
+        "title": "John Doe - Patient Profile",
+        "dom_snapshot_hash": "c1d2e3f4"
+      },
+      "state_after": {
+        "url": "https://www31.pointclickcare.com/pcc/ordersummary.xhtml?clientId=12345",
+        "title": "Order Summary Report - PointClickCare",
+        "dom_snapshot_hash": "f9e8d7c6"
+      },
+      "network_events": [
+        {
+          "request_id": "req-002",
+          "url": "https://www31.pointclickcare.com/pcc/ordersummary.xhtml?clientId=12345",
+          "method": "GET",
+          "status": 200,
+          "content_type": "text/html",
+          "timestamp": "2026-03-30T10:02:16.000Z",
+          "is_report_endpoint": true,
+          "endpoint_type": "OS_report"
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "timestamp": "2026-03-30T10:03:00.000Z",
+      "action_type": "print",
+      "target": {
+        "selectors": [],
+        "visible_text": "",
+        "tag": "",
+        "frame_path": ["main"],
+        "bounding_rect": null
+      },
+      "input_value": null,
+      "state_before": {
+        "url": "https://www31.pointclickcare.com/pcc/ordersummary.xhtml?clientId=12345",
+        "title": "Order Summary Report - PointClickCare",
+        "dom_snapshot_hash": "f9e8d7c6"
+      },
+      "state_after": {
+        "url": "https://www31.pointclickcare.com/pcc/ordersummary.xhtml?clientId=12345",
+        "title": "Order Summary Report - PointClickCare",
+        "dom_snapshot_hash": "f9e8d7c6"
+      },
+      "network_events": []
+    }
+  ]
+}

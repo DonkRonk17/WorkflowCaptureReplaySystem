@@ -1,0 +1,44 @@
+wcrs:
+  recording:
+    screenshot_quality: 80
+    screenshot_format: png
+    network_capture: true
+    max_recording_duration_ms: 600000  # 10 minutes
+
+  state_mapper:
+    confidence_threshold: 0.3          # Minimum confidence to include edge
+    max_recovery_retries: 3
+    timeout_ms: 30000
+    state_identity:
+      use_url: true
+      use_dom_signature: true
+      url_normalize_params: false       # PCC URLs have meaningful params
+
+  selector_engine:
+    strategies:
+      - { type: role,      weight: 0.95 }
+      - { type: testId,    weight: 0.90 }
+      - { type: text,      weight: 0.80 }
+      - { type: attribute, weight: 0.70 }
+      - { type: css,       weight: 0.30 }
+    max_candidates_per_element: 5
+
+  pdf_verifier:
+    visual_tolerance: 0.05             # 5% pixel diff allowed
+    text_similarity_threshold: 0.95
+    rasterize_dpi: 150
+
+  rules_engine:
+    rules_file: cu-rules.yaml
+
+  runtime:
+    playwright:
+      browser: chromium
+      headless: false                  # CU requires visible browser for debugging
+      viewport: { width: 1920, height: 1080 }
+      timeout: 60000                   # 60s default (covers MAR/TAR 75s with retries)
+    max_step_retries: 2
+    escalate_after_retries: true
+    step_timeouts:
+      default: 60000
+      mar_tar: 90000                   # Extended timeout for MAR/TAR report generation
