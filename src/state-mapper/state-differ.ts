@@ -1,209 +1,261 @@
 /**
  * WCRS State Differ (Module 2 — UI State Mapper)
- * Merges multiple workflow traces into a single state graph and computes
- * before/after diffs between two graph versions.
+ * Merges multiple workflow traces into a single, unified StateGraph.
+ *
+ * Core algorithm:
+ *   1. Build individual graph per trace (via graph-builder)
+ *   2. Reconcile states by ID — merge title/metadata, increment recordings_seen
+ *   3. Reconcile transitions — same (from, to, actionType) key gets recordings_seen++
+ *      and selectors merged from all contributing traces
+ *   4. Diverging paths (same from-state, different to-state) are KEPT as separate
+ *      transitions, each with their own confidence score
+ *   5. Recalculate confidence for all transitions against total trace count
  *
  * Bible spec:
+ *   "If trace is malformed, skip with warning and continue with remaining traces."
+ *   "Two traces show different paths from same state → both edges added with confidence scores."
  *   "Multi-trace merge with confidence scoring."
- *   "diffTraces() merges N traces into one StateGraph."
- *   "Skips malformed traces with console.warn (not throws)."
  */
 
-import type { WorkflowTrace } from '../types/index.js';
-import { buildGraph, type StateGraph } from './graph-builder.js';
+import type {
+  WorkflowTrace,
+  TraceState,
+  TraceTransition
+} from '../types/index.js';
 
-// ── Public Interfaces ──────────────────────────────────────────────────────
-
-export interface MergeStats {
-  total_traces: number;
-  valid_traces: number;
-  skipped_traces: number;
-  /** States that appeared across multiple traces (recordings_seen > 1) */
-  merged_states: number;
-  /** States that only appeared in a single trace (recordings_seen === 1) */
-  new_states: number;
-  /** Transitions that appeared across multiple traces (recordings_seen > 1) */
-  merged_transitions: number;
-  /** Transitions that only appeared in a single trace (recordings_seen === 1) */
-  new_transitions: number;
-}
-
-export interface SkippedTrace {
-  trace_id: string | null;
-  reason: string;
-}
-
-export interface ConfidenceChange {
-  transition_id: string;
-  from: number;
-  to: number;
-  delta: number;
-}
-
-export interface DivergingPath {
-  from_state: string;
-  event: string;
-  to_states: string[];
-}
-
-export interface DiffResult {
-  graph: StateGraph;
-  stats: MergeStats;
-  skipped: SkippedTrace[];
-  diverging_paths: DivergingPath[];
-}
-
-export interface DiffOptions {
-  minConfidence?: number;
-}
-
-export interface GraphDiff {
-  added_states: string[];
-  removed_states: string[];
-  added_transitions: string[];
-  removed_transitions: string[];
-  confidence_changes: ConfidenceChange[];
-}
-
-// ── Validation ─────────────────────────────────────────────────────────────
-
-function isValidTrace(trace: unknown): trace is WorkflowTrace {
-  if (!trace || typeof trace !== 'object') return false;
-  const t = trace as Record<string, unknown>;
-  return (
-    typeof t['trace_id'] === 'string' &&
-    Array.isArray(t['actions']) &&
-    typeof t['wcrs_version'] === 'string' &&
-    typeof t['recorded_at'] === 'string'
-  );
-}
-
-function describeInvalidReason(trace: unknown): string {
-  if (!trace || typeof trace !== 'object') return 'not an object';
-  const t = trace as Record<string, unknown>;
-  if (typeof t['trace_id'] !== 'string') return 'missing or non-string trace_id';
-  if (!Array.isArray(t['actions'])) return 'missing or non-array actions';
-  if (typeof t['wcrs_version'] !== 'string') return 'missing wcrs_version';
-  if (typeof t['recorded_at'] !== 'string') return 'missing recorded_at';
-  return 'unknown validation failure';
-}
+import { buildGraph, type StateGraph, type BuildGraphOptions } from './graph-builder.js';
+import { calculateConfidence } from './confidence-scorer.js';
+import { mergeSelectors } from './selector-utils.js';
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-/**
- * Merge N workflow traces into a single state graph.
- * Malformed traces are skipped with a console.warn (never throws).
- *
- * @param traces - Array of unknown trace objects (validated internally)
- * @param options - Merge options (minConfidence threshold)
- * @returns DiffResult with merged graph, stats, skipped list, and diverging paths
- */
-export function diffTraces(traces: unknown[], options: DiffOptions = {}): DiffResult {
-  const validTraces: WorkflowTrace[] = [];
-  const skipped: SkippedTrace[] = [];
+export interface DiffResult {
+  graph: StateGraph;
+  skippedTraces: SkippedTrace[];
+  mergeStats: MergeStats;
+}
 
-  for (const trace of traces) {
-    if (!isValidTrace(trace)) {
-      const rawTraceId =
-        trace && typeof trace === 'object'
-          ? (trace as Record<string, unknown>)['trace_id']
-          : null;
-      const traceId: string | null =
-        typeof rawTraceId === 'string' ? rawTraceId : null;
+export interface SkippedTrace {
+  traceId: string;
+  reason: string;
+}
 
-      const reason = describeInvalidReason(trace);
-      console.warn(`[WCRS state-differ] Skipping malformed trace (${traceId ?? 'unknown'}): ${reason}`);
-      skipped.push({ trace_id: traceId ?? null, reason });
-    } else {
-      validTraces.push(trace);
-    }
-  }
-
-  const graph = buildGraph(validTraces, { minConfidence: options.minConfidence });
-
-  // Partition states into merged (seen > 1) vs new (seen == 1)
-  let mergedStates = 0;
-  let newStates = 0;
-  for (const state of graph.states.values()) {
-    if (state.recordings_seen > 1) mergedStates++;
-    else newStates++;
-  }
-
-  // Partition transitions into merged vs new
-  const mergedTransitions = graph.transitions.filter(t => t.recordings_seen > 1).length;
-  const newTransitions = graph.transitions.filter(t => t.recordings_seen === 1).length;
-
-  const stats: MergeStats = {
-    total_traces: traces.length,
-    valid_traces: validTraces.length,
-    skipped_traces: skipped.length,
-    merged_states: mergedStates,
-    new_states: newStates,
-    merged_transitions: mergedTransitions,
-    new_transitions: newTransitions
-  };
-
-  // Detect diverging paths: same from_state + same event → multiple to_states
-  const pathMap = new Map<string, Set<string>>();
-  for (const t of graph.transitions) {
-    const key = `${t.from}::${t.event}`;
-    if (!pathMap.has(key)) pathMap.set(key, new Set());
-    pathMap.get(key)!.add(t.to);
-  }
-
-  const diverging_paths: DivergingPath[] = [];
-  for (const [key, toStates] of pathMap) {
-    if (toStates.size > 1) {
-      const colonIdx = key.indexOf('::');
-      const from_state = key.slice(0, colonIdx);
-      const event = key.slice(colonIdx + 2);
-      diverging_paths.push({ from_state, event, to_states: [...toStates] });
-    }
-  }
-
-  return { graph, stats, skipped, diverging_paths };
+export interface MergeStats {
+  inputTraces: number;
+  validTraces: number;
+  skippedTraces: number;
+  mergedStates: number;
+  newStates: number;
+  mergedTransitions: number;
+  newTransitions: number;
+  divergingPaths: number;   // transitions where same from-state goes to different to-states
 }
 
 /**
- * Compare two state graphs and return the structural diff.
+ * Merge multiple workflow traces into a single unified StateGraph.
  *
- * @param base - The original state graph
- * @param updated - The updated state graph (after a new recording or rebuild)
- * @returns GraphDiff describing added/removed states and confidence changes
+ * Unlike buildGraph() which processes all traces in one pass, diffTraces()
+ * processes each trace individually and then reconciles the resulting graphs.
+ * This gives more granular control over per-trace contributions.
+ *
+ * @param traces - Array of workflow traces to merge
+ * @param options - Graph build options (applied to each per-trace build)
+ * @returns DiffResult with merged graph and merge statistics
  */
-export function diffGraphs(base: StateGraph, updated: StateGraph): GraphDiff {
-  const baseStateIds = new Set(base.states.keys());
-  const updatedStateIds = new Set(updated.states.keys());
+export function diffTraces(
+  traces: WorkflowTrace[],
+  options: BuildGraphOptions = {}
+): DiffResult {
+  const skippedTraces: SkippedTrace[] = [];
+  const validTraces: WorkflowTrace[] = [];
 
-  const added_states = [...updatedStateIds].filter(id => !baseStateIds.has(id));
-  const removed_states = [...baseStateIds].filter(id => !updatedStateIds.has(id));
-
-  const baseTransIds = new Set(base.transitions.map(t => t.id));
-  const updatedTransIds = new Set(updated.transitions.map(t => t.id));
-
-  const added_transitions = [...updatedTransIds].filter(id => !baseTransIds.has(id));
-  const removed_transitions = [...baseTransIds].filter(id => !updatedTransIds.has(id));
-
-  const confidence_changes: ConfidenceChange[] = [];
-  const baseTransMap = new Map(base.transitions.map(t => [t.id, t]));
-
-  for (const t of updated.transitions) {
-    const baseTrans = baseTransMap.get(t.id);
-    if (baseTrans && Math.abs(baseTrans.confidence - t.confidence) > 0.001) {
-      confidence_changes.push({
-        transition_id: t.id,
-        from: baseTrans.confidence,
-        to: t.confidence,
-        delta: t.confidence - baseTrans.confidence
-      });
+  // Validate and filter traces
+  for (const trace of traces) {
+    const validation = validateTrace(trace);
+    if (validation.valid) {
+      validTraces.push(trace);
+    } else {
+      const traceId = trace.trace_id ?? 'unknown';
+      skippedTraces.push({ traceId, reason: validation.reason });
+      console.warn(`[WCRS:StateDiffer] Skipping trace ${traceId}: ${validation.reason}`);
     }
   }
 
-  return {
-    added_states,
-    removed_states,
-    added_transitions,
-    removed_transitions,
-    confidence_changes
+  if (validTraces.length === 0) {
+    return {
+      graph: { states: new Map(), transitions: [], totalTraces: 0 },
+      skippedTraces,
+      mergeStats: {
+        inputTraces: traces.length, validTraces: 0, skippedTraces: skippedTraces.length,
+        mergedStates: 0, newStates: 0, mergedTransitions: 0, newTransitions: 0, divergingPaths: 0
+      }
+    };
+  }
+
+  // Build individual graphs
+  const perTraceGraphs = validTraces.map(trace =>
+    buildGraph([trace], { ...options, minConfidence: 0.0 })
+  );
+
+  // Merge all graphs
+  const mergedStates = new Map<string, TraceState>();
+  const transitionMap = new Map<string, TraceTransition>();
+
+  let stats: MergeStats = {
+    inputTraces: traces.length,
+    validTraces: validTraces.length,
+    skippedTraces: skippedTraces.length,
+    mergedStates: 0,
+    newStates: 0,
+    mergedTransitions: 0,
+    newTransitions: 0,
+    divergingPaths: 0
   };
+
+  for (const singleGraph of perTraceGraphs) {
+    // Merge states
+    for (const [id, state] of singleGraph.states) {
+      const existing = mergedStates.get(id);
+      if (existing) {
+        existing.recordings_seen += state.recordings_seen;
+        if (!existing.title && state.title) existing.title = state.title;
+        stats.mergedStates++;
+      } else {
+        mergedStates.set(id, { ...state, recordings_seen: state.recordings_seen });
+        stats.newStates++;
+      }
+    }
+
+    // Merge transitions: each trace contributes at most 1 to recordings_seen,
+    // regardless of how many times the transition appears within that trace.
+    for (const transition of singleGraph.transitions) {
+      const key = transition.id;
+      const existing = transitionMap.get(key);
+      if (existing) {
+        existing.recordings_seen += 1;
+        mergeSelectors(existing.selectors, transition.selectors);
+        stats.mergedTransitions++;
+      } else {
+        // recordings_seen starts at 1 (this trace), regardless of within-trace occurrences
+        transitionMap.set(key, { ...transition, selectors: [...transition.selectors], recordings_seen: 1 });
+        stats.newTransitions++;
+      }
+    }
+  }
+
+  // Recalculate confidence against total valid trace count
+  const allTransitions: TraceTransition[] = [];
+  const minConfidence = options.minConfidence ?? 0.1;
+
+  for (const transition of transitionMap.values()) {
+    transition.confidence = calculateConfidence(transition.recordings_seen, validTraces.length);
+    if (transition.confidence >= minConfidence) {
+      allTransitions.push(transition);
+    }
+  }
+
+  // Count diverging paths
+  stats.divergingPaths = countDivergingPaths(allTransitions);
+
+  const mergedGraph: StateGraph = {
+    states: mergedStates,
+    transitions: allTransitions,
+    totalTraces: validTraces.length
+  };
+
+  return { graph: mergedGraph, skippedTraces, mergeStats: stats };
+}
+
+/**
+ * Produce a human-readable diff summary between two StateGraphs.
+ * Useful for understanding how a new recording changes the model.
+ *
+ * @param base - Existing graph (baseline)
+ * @param updated - New graph (after adding more traces)
+ * @returns GraphDiff object
+ */
+export function diffGraphs(base: StateGraph, updated: StateGraph): GraphDiff {
+  const addedStates: string[] = [];
+  const removedStates: string[] = [];
+  const addedTransitions: string[] = [];
+  const removedTransitions: string[] = [];
+  const confidenceChanges: ConfidenceChange[] = [];
+
+  // States
+  for (const id of updated.states.keys()) {
+    if (!base.states.has(id)) addedStates.push(id);
+  }
+  for (const id of base.states.keys()) {
+    if (!updated.states.has(id)) removedStates.push(id);
+  }
+
+  // Transitions
+  const baseTransMap = new Map(base.transitions.map(t => [t.id, t]));
+  const updatedTransMap = new Map(updated.transitions.map(t => [t.id, t]));
+
+  for (const [id, updatedT] of updatedTransMap) {
+    const baseT = baseTransMap.get(id);
+    if (!baseT) {
+      addedTransitions.push(id);
+    } else if (Math.abs(updatedT.confidence - baseT.confidence) > 0.05) {
+      confidenceChanges.push({
+        transitionId: id,
+        before: baseT.confidence,
+        after: updatedT.confidence,
+        delta: updatedT.confidence - baseT.confidence
+      });
+    }
+  }
+  for (const id of baseTransMap.keys()) {
+    if (!updatedTransMap.has(id)) removedTransitions.push(id);
+  }
+
+  return { addedStates, removedStates, addedTransitions, removedTransitions, confidenceChanges };
+}
+
+export interface GraphDiff {
+  addedStates: string[];
+  removedStates: string[];
+  addedTransitions: string[];
+  removedTransitions: string[];
+  confidenceChanges: ConfidenceChange[];
+}
+
+export interface ConfidenceChange {
+  transitionId: string;
+  before: number;
+  after: number;
+  delta: number;
+}
+
+// ── Private Helpers ────────────────────────────────────────────────────────
+
+interface TraceValidation {
+  valid: boolean;
+  reason: string;
+}
+
+function validateTrace(trace: WorkflowTrace): TraceValidation {
+  if (!trace) return { valid: false, reason: 'null or undefined trace' };
+  if (!trace.trace_id) return { valid: false, reason: 'missing trace_id' };
+  if (!Array.isArray(trace.actions)) return { valid: false, reason: 'actions is not an array' };
+  if (trace.actions.length === 0) return { valid: false, reason: 'empty actions array' };
+  return { valid: true, reason: '' };
+}
+
+/**
+ * Count transitions where the same from-state has multiple edges to different to-states.
+ */
+function countDivergingPaths(transitions: TraceTransition[]): number {
+  const fromMap = new Map<string, Set<string>>();
+  for (const t of transitions) {
+    const targets = fromMap.get(t.from) ?? new Set();
+    targets.add(t.to);
+    fromMap.set(t.from, targets);
+  }
+  let count = 0;
+  for (const targets of fromMap.values()) {
+    if (targets.size > 1) count += targets.size;
+  }
+  return count;
 }
