@@ -104,11 +104,12 @@ export function diffTraces(traces: unknown[], options: DiffOptions = {}): DiffRe
 
   for (const trace of traces) {
     if (!isValidTrace(trace)) {
-      const traceId = (
+      const rawTraceId =
         trace && typeof trace === 'object'
           ? (trace as Record<string, unknown>)['trace_id']
-          : null
-      ) as string | null;
+          : null;
+      const traceId: string | null =
+        typeof rawTraceId === 'string' ? rawTraceId : null;
 
       const reason = describeInvalidReason(trace);
       console.warn(`[WCRS state-differ] Skipping malformed trace (${traceId ?? 'unknown'}): ${reason}`);

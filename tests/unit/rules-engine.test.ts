@@ -51,16 +51,17 @@ describe('loadRules', () => {
   });
 
   test('throws RuleLoadError for YAML missing required fields (no id)', () => {
-    // Write a temp YAML-like string and test via the schema validation path
-    // We test this by loading an invalid inline file indirectly via a temp approach
-    // Since we can't easily write temp files in unit tests, we test the class directly
-    expect(RuleLoadError.prototype).toBeDefined();
-
-    // Instantiate a RuleLoadError and check its structure
-    const err = new RuleLoadError('test message', ['field A missing']);
-    expect(err.message).toBe('test message');
-    expect(err.validationErrors).toEqual(['field A missing']);
-    expect(err.name).toBe('RuleLoadError');
+    const tmpFile = path.join(require('os').tmpdir(), `wcrs-test-rules-${Date.now()}.yaml`);
+    const invalidYaml = `rules:\n  - type: sequencing\n    description: "missing id field"\n`;
+    require('fs').writeFileSync(tmpFile, invalidYaml, 'utf-8');
+    try {
+      let caughtError: unknown;
+      try { loadRules(tmpFile); } catch (e) { caughtError = e; }
+      expect(caughtError).toBeInstanceOf(RuleLoadError);
+      expect((caughtError as RuleLoadError).validationErrors.length).toBeGreaterThan(0);
+    } finally {
+      require('fs').unlinkSync(tmpFile);
+    }
   });
 
   test('all loaded rules have id, type, description', () => {

@@ -32,7 +32,7 @@ export interface FidelityReport {
     orientation_match: boolean;
     text_content_similarity: number;
     visual_similarity: number | null;
-    margins_within_tolerance: boolean;
+    margins_within_tolerance: boolean | null;
   };
   discrepancies: Array<{
     page: number;
@@ -116,7 +116,12 @@ function isTwoUpLayout(extracted: PdfExtractResult, expectedPageCount?: number):
   if (!extracted.isLandscape) return false;
   if (expectedPageCount == null) return false;
   // 2-up: landscape page contains 2 logical pages → actual count ≈ half expected
-  return extracted.pageCount > 0 && extracted.pageCount <= Math.ceil(expectedPageCount / 2);
+  const halfUp = Math.ceil(expectedPageCount / 2);
+  const halfDown = Math.floor(expectedPageCount / 2);
+  return (
+    extracted.pageCount > 0 &&
+    (extracted.pageCount === halfUp || extracted.pageCount === halfDown)
+  );
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
@@ -260,7 +265,7 @@ export async function comparePdfs(
       orientation_match: orientationMatch,
       text_content_similarity: Math.round(textSim * 1000) / 1000,
       visual_similarity: visualSim !== null ? Math.round(visualSim * 1000) / 1000 : null,
-      margins_within_tolerance: true // requires advanced analysis; default conservative pass
+      margins_within_tolerance: null // not evaluated; requires advanced layout analysis
     },
     discrepancies,
     is_two_up_layout,

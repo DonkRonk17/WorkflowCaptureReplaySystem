@@ -71,7 +71,7 @@ export function formatMarkdown(report: FidelityReport): string {
 | Visual Similarity | ${visualStr} |
 | Page Count Match | ${report.checks.page_count_match ? '✓ Yes' : '✗ No'} |
 | Orientation Match | ${report.checks.orientation_match ? '✓ Yes' : '✗ No'} |
-| Margins Within Tolerance | ${report.checks.margins_within_tolerance ? '✓ Yes' : '✗ No'} |
+| Margins Within Tolerance | ${report.checks.margins_within_tolerance === null ? '— N/A' : report.checks.margins_within_tolerance ? '✓ Yes' : '✗ No'} |
 | 2-Up Layout Detected | ${report.is_two_up_layout ? '⚠ Yes (OS/MAR/TAR)' : 'No'} |
 
 ## Discrepancies

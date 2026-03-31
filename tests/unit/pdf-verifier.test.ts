@@ -195,7 +195,7 @@ describe('formatMarkdown', () => {
       orientation_match: true,
       text_content_similarity: 0.99,
       visual_similarity: 0.98,
-      margins_within_tolerance: true
+      margins_within_tolerance: null
     },
     discrepancies: [],
     is_two_up_layout: false,

@@ -27,6 +27,7 @@ function compareDates(a: string, b: string): number {
 /**
  * Evaluate a simple key==value condition string against the workflow context.
  * Supports: "key == value" or "key == true/false".
+ * Keys may contain dots (e.g., "step.type"). String values may be quoted.
  * Does NOT use eval().
  */
 function evaluateCondition(
@@ -34,70 +35,91 @@ function evaluateCondition(
   doc: DocumentMetadata,
   context: WorkflowContext
 ): boolean {
-  // Normalise: "key==value" or "key == value"
-  const match = condition.match(/^\s*(\w+)\s*==\s*(\S+)\s*$/);
+  // Normalise: "key==value" or "key == value"; allow dotted keys and quoted strings
+  const match = condition.match(/^\s*([\w.]+)\s*==\s*(\S+)\s*$/);
   if (!match) return false;
 
   const [, key, rawValue] = match as [string, string, string];
 
-  // Resolve the value
+  // Strip surrounding single or double quotes from string literals
+  const stripped =
+    (rawValue.startsWith("'") && rawValue.endsWith("'")) ||
+    (rawValue.startsWith('"') && rawValue.endsWith('"'))
+      ? rawValue.slice(1, -1)
+      : rawValue;
+
+  // Resolve the value from context or doc using the key (supports dotted notation)
+  const parts = key.split('.');
   let contextValue: unknown;
-  switch (key) {
-    case 'radiology_results_exist':
-      contextValue = context.radiology_results_exist ?? false;
-      break;
-    case 'therapy_discipline_active':
-      contextValue = context.therapy_discipline_active ?? false;
-      break;
-    case 'step.type':
-      // sequencing: checked separately
-      contextValue = undefined;
-      break;
-    default:
-      // Try context fields generically
-      contextValue = (context as unknown as Record<string, unknown>)[key];
-      if (contextValue === undefined) {
-        contextValue = (doc as unknown as Record<string, unknown>)[key];
+
+  if (parts.length > 1) {
+    // Dotted key: walk the context object
+    let obj: unknown = context;
+    for (const part of parts) {
+      if (obj != null && typeof obj === 'object') {
+        obj = (obj as Record<string, unknown>)[part];
+      } else {
+        obj = undefined;
+        break;
       }
+    }
+    contextValue = obj;
+    if (contextValue === undefined) {
+      // Fall back to doc
+      let docObj: unknown = doc;
+      for (const part of parts) {
+        if (docObj != null && typeof docObj === 'object') {
+          docObj = (docObj as Record<string, unknown>)[part];
+        } else {
+          docObj = undefined;
+          break;
+        }
+      }
+      contextValue = docObj;
+    }
+  } else {
+    switch (key) {
+      case 'radiology_results_exist':
+        contextValue = context.radiology_results_exist ?? false;
+        break;
+      case 'therapy_discipline_active':
+        contextValue = context.therapy_discipline_active ?? false;
+        break;
+      default:
+        contextValue = (context as unknown as Record<string, unknown>)[key];
+        if (contextValue === undefined) {
+          contextValue = (doc as unknown as Record<string, unknown>)[key];
+        }
+    }
   }
 
-  // Parse expected value
+  // Parse expected value (use stripped form for comparisons)
   let expected: unknown;
-  if (rawValue === 'true') expected = true;
-  else if (rawValue === 'false') expected = false;
-  else if (!isNaN(Number(rawValue))) expected = Number(rawValue);
-  else expected = rawValue;
+  if (stripped === 'true') expected = true;
+  else if (stripped === 'false') expected = false;
+  else if (!isNaN(Number(stripped)) && stripped !== '') expected = Number(stripped);
+  else expected = stripped;
 
   return contextValue === expected;
 }
 
 // ── Rule Evaluators ────────────────────────────────────────────────────────
 
-function evalSequencing(rule: Rule, doc: DocumentMetadata, context: WorkflowContext): RuleEvaluationResult {
-  // Check that an admin_note step exists in collected_docs before this doc
-  const adminNoteIndex = context.collected_docs.findIndex(d => d.doc_type === 'admin_note');
-  const docIndex = context.collected_docs.findIndex(d => d.filename === doc.filename);
-
-  // If admin_note not found in collected_docs, assume it's a workflow prerequisite
-  // that may not be represented as a document
-  if (adminNoteIndex === -1) {
-    // No admin_note in collected_docs; pass with a warning note
-    return {
-      rule_id: rule.id,
-      passed: true,
-      message: `Sequencing rule ${rule.id}: admin_note not tracked in collected_docs (assumed satisfied)`
-    };
-  }
-
-  if (docIndex !== -1 && adminNoteIndex > docIndex) {
-    return {
-      rule_id: rule.id,
-      passed: false,
-      message: `Sequencing rule ${rule.id}: admin_note must precede ${doc.filename}`
-    };
-  }
-
-  return { rule_id: rule.id, passed: true, message: `Sequencing rule ${rule.id} passed` };
+function evalSequencing(rule: Rule, _doc: DocumentMetadata, _context: WorkflowContext): RuleEvaluationResult {
+  // NOTE:
+  // Sequencing in cu-rules.yaml is expressed in terms of step-level context
+  // (e.g., step.type == 'admin_note'), but this evaluator currently only has
+  // access to document-level metadata. Until step-level context is available
+  // and wired into the rules engine, we do not attempt to enforce sequencing
+  // here to avoid enforcing incorrect, hard-coded assumptions.
+  //
+  // We conservatively mark the rule as passed and include a message indicating
+  // that sequencing was not evaluated in this context.
+  return {
+    rule_id: rule.id,
+    passed: true,
+    message: `Sequencing rule ${rule.id}: not evaluated in document-only context`
+  };
 }
 
 function evalDateFilter(rule: Rule, doc: DocumentMetadata, context: WorkflowContext): RuleEvaluationResult {

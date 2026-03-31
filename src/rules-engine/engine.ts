@@ -113,14 +113,14 @@ export class RulesEngine {
   /**
    * Return a summary of rule counts by type.
    */
-  getSummary(): { totalRules: number; byType: Record<RuleType, number> } {
-    const byType: Record<string, number> = {};
+  getSummary(): { totalRules: number; byType: Partial<Record<RuleType, number>> } {
+    const byType: Partial<Record<RuleType, number>> = {};
     for (const r of this.rules) {
       byType[r.type] = (byType[r.type] ?? 0) + 1;
     }
     return {
       totalRules: this.rules.length,
-      byType: byType as Record<RuleType, number>
+      byType
     };
   }
 }
