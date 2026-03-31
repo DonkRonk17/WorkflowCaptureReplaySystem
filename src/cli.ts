@@ -16,8 +16,7 @@ import { glob } from 'glob';
 import type { WorkflowTrace } from './types/index.js';
 import { buildAndExportXState, buildGraph } from './state-mapper/graph-builder.js';
 import { serializeMachine, generateStatelyUrl } from './state-mapper/xstate-export.js';
-import { WorkflowExecutor } from './runtime/executor.js';
-import { writeReport } from './runtime/reporter.js';
+import { WorkflowExecutor, type ExecutorPage } from './runtime/executor.js';
 
 const VERSION = '1.0.0';
 
@@ -202,30 +201,36 @@ program
       const stepTimeoutMs = parseInt(options.timeout, 10);
       const outputDir = path.resolve(options.output);
 
-      // WorkflowExecutor requires a Playwright Page; in CLI mode without a real browser
-      // the user is expected to connect Playwright externally or use --dry-run.
-      // For now, provide a stub page for dry-run and warn otherwise.
+      // WorkflowExecutor requires a Playwright Page. Live execution (connecting to a
+      // real browser) is not yet wired into the CLI. Fail fast unless --dry-run is set.
       if (!options.dryRun) {
-        console.warn('[WCRS] Warning: Live execution requires an active Playwright browser session.');
-        console.warn('[WCRS] Use --dry-run to test without a browser.');
+        console.error('[WCRS] Error: Live execution requires an active Playwright browser session.');
+        console.error('[WCRS] Live mode is not yet implemented in the CLI.');
+        console.error('[WCRS] Use --dry-run to simulate workflow replay without a browser.');
+        process.exit(1);
       }
 
-      const stubPage = {
+      const stubPage: ExecutorPage = {
         url: () => '',
         title: async () => '',
-        goto: async () => null,
-        locator: () => ({ click: async () => {}, fill: async () => {}, selectOption: async () => {}, count: async () => 0 }),
-        keyboard: { press: async () => {} },
-        waitForTimeout: async () => {},
-        screenshot: async () => Buffer.from(''),
-        evaluate: async () => {},
+        goto: async (_url: string, _opts?: Record<string, unknown>) => null,
+        locator: (_selector: string) => ({
+          click: async (_opts?: Record<string, unknown>) => {},
+          fill: async (_value: string, _opts?: Record<string, unknown>) => {},
+          selectOption: async (_value: string, _opts?: Record<string, unknown>) => {},
+          count: async () => 0
+        }),
+        keyboard: { press: async (_key: string) => {} },
+        waitForTimeout: async (_ms: number) => {},
+        screenshot: async (_opts: { path: string }) => Buffer.from(''),
+        evaluate: async <T>(_fn: () => T): Promise<T> => undefined as unknown as T,
         pdf: async () => Buffer.from('')
       };
 
       const machine = buildAndExportXState([trace]);
 
       const executor = new WorkflowExecutor({
-        page: stubPage as never,
+        page: stubPage,
         machine,
         graph,
         options: {
@@ -245,8 +250,7 @@ program
       });
 
       console.log(`[WCRS] Starting ${options.dryRun ? 'DRY RUN' : 'LIVE'} execution...`);
-      const report = await executor.run();
-      await writeReport(report, outputDir);
+      const report = await executor.run(); // executor writes the report to outputDir internally
 
       console.log(`[WCRS] ✓ Execution complete`);
       console.log(`[WCRS]   Status:    ${report.status}`);

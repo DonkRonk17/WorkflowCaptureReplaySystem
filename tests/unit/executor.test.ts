@@ -5,7 +5,7 @@
 
 import { WorkflowExecutor } from '../../src/runtime/executor.js';
 import type { ExecutorContext, ExecutorPage } from '../../src/runtime/executor.js';
-import type { StateMachineDefinition, TraceTransition, TraceState, WorkflowContext } from '../../src/types/index.js';
+import type { StateMachineDefinition, TraceTransition, TraceState, WorkflowContext, ActionEvent } from '../../src/types/index.js';
 import type { StateGraph } from '../../src/state-mapper/graph-builder.js';
 
 // ── Mock page factory ─────────────────────────────────────────────────────
@@ -191,13 +191,26 @@ describe('WorkflowExecutor.getStepTimeout', () => {
 // ── executeAction ─────────────────────────────────────────────────────────
 
 describe('WorkflowExecutor.executeAction', () => {
-  it('calls page.goto for navigate action', async () => {
+  it('calls page.goto for navigate action (URL from graph state fallback)', async () => {
     const page = makeMockPage();
     const ctx = makeContext({ page });
     const executor = new WorkflowExecutor(ctx);
+    // No selectors, no input_value → falls back to graph.states.get('state_001').url_pattern
     const trans = makeTransition({ action_type: 'navigate', selectors: [] });
     await executor.executeAction(trans);
-    expect(page.goto).toHaveBeenCalled();
+    expect(page.goto).toHaveBeenCalledWith(
+      'https://app.example.com/patients',
+      expect.anything()
+    );
+  });
+
+  it('throws for navigate action when no URL can be resolved', async () => {
+    const page = makeMockPage();
+    const ctx = makeContext({ page });
+    // Transition to a state not in the graph so url_pattern fallback is undefined too
+    const executor = new WorkflowExecutor(ctx);
+    const trans = makeTransition({ action_type: 'navigate', selectors: [], to: 'state_unknown' });
+    await expect(executor.executeAction(trans)).rejects.toThrow('navigate action has no URL');
   });
 
   it('calls page.locator().click() for click action', async () => {
@@ -304,5 +317,73 @@ describe('WorkflowExecutor.run() — recovery scenarios', () => {
     const report = await executor.run();
     expect(typeof report.escalation_reason).toBe('string');
     expect(report.escalation_reason!.length).toBeGreaterThan(0);
+  });
+});
+
+// ── resolveInputValue disambiguation ─────────────────────────────────────
+
+describe('WorkflowExecutor.resolveInputValue — disambiguation', () => {
+  function makeAction(
+    action_type: ActionEvent['action_type'],
+    input_value: string | null,
+    stateBeforeUrl?: string
+  ): ActionEvent {
+    return {
+      seq: 1,
+      timestamp: '2026-03-31T00:00:00.000Z',
+      action_type,
+      target: null,
+      input_value,
+      state_before: stateBeforeUrl
+        ? { url: stateBeforeUrl, title: '', dom_snapshot_hash: '', screenshot_ref: null }
+        : null,
+      state_after: null,
+      network_events: []
+    };
+  }
+
+  it('returns null when no actions provided', () => {
+    const executor = new WorkflowExecutor(makeContext());
+    const result = executor['resolveInputValue'](makeTransition());
+    expect(result).toBeNull();
+  });
+
+  it('returns input_value when exactly one action matches action_type', () => {
+    const ctx: ExecutorContext = {
+      ...makeContext(),
+      actions: [makeAction('type', 'hello world')]
+    };
+    const executor = new WorkflowExecutor(ctx);
+    const result = executor['resolveInputValue'](makeTransition({ action_type: 'type' }));
+    expect(result).toBe('hello world');
+  });
+
+  it('disambiguates among multiple same-type actions by from-state URL', () => {
+    // Two 'type' actions in different states; transition is from state_000 (login page)
+    const ctx: ExecutorContext = {
+      ...makeContext(),
+      actions: [
+        makeAction('type', 'patient123', 'https://app.example.com/patients'), // from patients state
+        makeAction('type', 'admin',      'https://app.example.com/login')      // from login state
+      ]
+    };
+    const executor = new WorkflowExecutor(ctx);
+    // transition.from = 'state_000' → url_pattern = 'https://app.example.com/login'
+    const trans = makeTransition({ action_type: 'type', from: 'state_000' });
+    const result = executor['resolveInputValue'](trans);
+    expect(result).toBe('admin'); // should pick the login-state action
+  });
+
+  it('falls back to first candidate when from-state URL does not disambiguate', () => {
+    const ctx: ExecutorContext = {
+      ...makeContext(),
+      actions: [
+        makeAction('type', 'first', undefined),
+        makeAction('type', 'second', undefined)
+      ]
+    };
+    const executor = new WorkflowExecutor(ctx);
+    const result = executor['resolveInputValue'](makeTransition({ action_type: 'type' }));
+    expect(result).toBe('first');
   });
 });

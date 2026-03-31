@@ -242,4 +242,30 @@ describe('state-verifier — error handling', () => {
     // url=0, title=0.2, dom=0 → confidence=0.2 < 0.5
     expect(result.passed).toBe(false);
   });
+
+  it('passed=false when title+dom match (conf=0.5) but URL does not match', async () => {
+    // url_match=false, title_match=true (0.2), dom=true (0.3) → confidence=0.5
+    // Previously this would have passed; now url_match is required.
+    const page = makePage({
+      url: 'https://other.com/dashboard',
+      title: 'Patient List',
+      locatorCount: 1
+    });
+    const state = makeState({
+      url_pattern: 'https://app.example.com/patients',
+      title: 'Patient List - PCC'
+    });
+    const result = await verifyState(page, state, makeTransition());
+    expect(result.checks.url_match).toBe(false);
+    expect(result.confidence).toBeCloseTo(0.5); // title(0.2) + dom(0.3)
+    expect(result.passed).toBe(false); // url_match is required
+  });
+
+  it('passed=false when URL is a prefix of expected (reverse-contains should not match)', async () => {
+    // actual='https://app.example.com' is NOT a valid match for expected='https://app.example.com/patients'
+    const page = makePage({ url: 'https://app.example.com' });
+    const state = makeState({ url_pattern: 'https://app.example.com/patients' });
+    const result = await verifyState(page, state, makeTransition());
+    expect(result.checks.url_match).toBe(false);
+  });
 });

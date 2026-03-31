@@ -86,7 +86,7 @@ export async function verifyState(
   }
 
   const confidence = computeConfidence(url_match, title_match, dom_elements_present);
-  const passed = confidence >= 0.5;
+  const passed = url_match && confidence >= 0.5;
 
   const result: StateVerificationResult = {
     passed,
@@ -129,8 +129,8 @@ function checkUrlMatch(actualUrl: string, expectedPattern: string): boolean {
   if (!expectedPattern) return false;
   const normActual = normalizeUrl(actualUrl);
   const normExpected = normalizeUrl(expectedPattern);
-  // Exact match first, then contains fallback (pattern may be partial)
-  return normActual === normExpected || normActual.includes(normExpected) || normExpected.includes(normActual);
+  // Exact match first, then "actual contains expected" fallback (pattern may be partial)
+  return normActual === normExpected || normActual.includes(normExpected);
 }
 
 /**
@@ -146,7 +146,7 @@ function checkTitleMatch(actualTitle: string, expectedTitle: string): boolean {
 
 /**
  * Check if at least one guard selector from the transition resolves to >0 elements.
- * Uses the first 'element_present' guard condition's selectors.
+ * Aggregates selectors from all 'element_present' guard conditions.
  * Never throws — returns false on any error.
  */
 async function checkDomElements(

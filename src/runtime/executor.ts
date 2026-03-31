@@ -319,7 +319,16 @@ export class WorkflowExecutor {
 
     switch (action_type) {
       case 'navigate': {
-        const url = inputValue ?? transition.selectors[0]?.selector ?? '';
+        const url =
+          inputValue ??
+          transition.selectors[0]?.selector ??
+          this.ctx.graph.states.get(transition.to)?.url_pattern ??
+          '';
+        if (!url) {
+          throw new Error(
+            'WCRS Executor: navigate action has no URL (missing input_value, selectors, and target state url_pattern)'
+          );
+        }
         await page.goto(url, { timeout: this.getStepTimeout(transition) });
         return;
       }
@@ -446,13 +455,34 @@ export class WorkflowExecutor {
 
   /**
    * Look up the input_value for a transition from the original ActionEvent array.
-   * Matches by action_type and from-state URL pattern.
+   * Matches by action_type; when multiple candidates share the same type, disambiguates
+   * by matching the action's state_before URL against the from-state's url_pattern,
+   * then falls back to the first candidate.
    */
   private resolveInputValue(transition: TraceTransition): string | null {
-    if (!this.ctx.actions) return null;
-    // Find first matching action by action_type
-    const match = this.ctx.actions.find(a => a.action_type === transition.action_type);
-    return match?.input_value ?? null;
+    const actions = this.ctx.actions;
+    if (!actions || actions.length === 0) return null;
+
+    const candidates = actions.filter(a => a.action_type === transition.action_type);
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return candidates[0]?.input_value ?? null;
+
+    // Multiple candidates: try to disambiguate by matching the action's recorded
+    // state_before URL against the from-state's url_pattern in the graph.
+    const fromState = this.ctx.graph.states.get(transition.from);
+    if (fromState?.url_pattern) {
+      const byFromUrl = candidates.find(a => {
+        const beforeUrl = a.state_before?.url ?? '';
+        return (
+          beforeUrl === fromState.url_pattern ||
+          beforeUrl.includes(fromState.url_pattern)
+        );
+      });
+      if (byFromUrl && byFromUrl.input_value != null) return byFromUrl.input_value;
+    }
+
+    // Last resort: preserve previous behavior and take the first candidate.
+    return candidates[0]?.input_value ?? null;
   }
 
   // ── Screenshot ───────────────────────────────────────────────────────────
