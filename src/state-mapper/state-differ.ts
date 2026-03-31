@@ -20,12 +20,12 @@
 import type {
   WorkflowTrace,
   TraceState,
-  TraceTransition,
-  SelectorCandidate
+  TraceTransition
 } from '../types/index.js';
 
 import { buildGraph, type StateGraph, type BuildGraphOptions } from './graph-builder.js';
 import { calculateConfidence } from './confidence-scorer.js';
+import { mergeSelectors } from './selector-utils.js';
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -75,8 +75,9 @@ export function diffTraces(
     if (validation.valid) {
       validTraces.push(trace);
     } else {
-      skippedTraces.push({ traceId: trace.trace_id ?? 'unknown', reason: validation.reason });
-      console.warn(`[WCRS:StateDiffer] Skipping trace ${trace.trace_id}: ${validation.reason}`);
+      const traceId = trace.trace_id ?? 'unknown';
+      skippedTraces.push({ traceId, reason: validation.reason });
+      console.warn(`[WCRS:StateDiffer] Skipping trace ${traceId}: ${validation.reason}`);
     }
   }
 
@@ -125,16 +126,18 @@ export function diffTraces(
       }
     }
 
-    // Merge transitions
+    // Merge transitions: each trace contributes at most 1 to recordings_seen,
+    // regardless of how many times the transition appears within that trace.
     for (const transition of singleGraph.transitions) {
       const key = transition.id;
       const existing = transitionMap.get(key);
       if (existing) {
-        existing.recordings_seen += transition.recordings_seen;
+        existing.recordings_seen += 1;
         mergeSelectors(existing.selectors, transition.selectors);
         stats.mergedTransitions++;
       } else {
-        transitionMap.set(key, { ...transition, selectors: [...transition.selectors] });
+        // recordings_seen starts at 1 (this trace), regardless of within-trace occurrences
+        transitionMap.set(key, { ...transition, selectors: [...transition.selectors], recordings_seen: 1 });
         stats.newTransitions++;
       }
     }
@@ -190,16 +193,16 @@ export function diffGraphs(base: StateGraph, updated: StateGraph): GraphDiff {
   const baseTransMap = new Map(base.transitions.map(t => [t.id, t]));
   const updatedTransMap = new Map(updated.transitions.map(t => [t.id, t]));
 
-  for (const [id, updated_t] of updatedTransMap) {
-    const base_t = baseTransMap.get(id);
-    if (!base_t) {
+  for (const [id, updatedT] of updatedTransMap) {
+    const baseT = baseTransMap.get(id);
+    if (!baseT) {
       addedTransitions.push(id);
-    } else if (Math.abs(updated_t.confidence - base_t.confidence) > 0.05) {
+    } else if (Math.abs(updatedT.confidence - baseT.confidence) > 0.05) {
       confidenceChanges.push({
         transitionId: id,
-        before: base_t.confidence,
-        after: updated_t.confidence,
-        delta: updated_t.confidence - base_t.confidence
+        before: baseT.confidence,
+        after: updatedT.confidence,
+        delta: updatedT.confidence - baseT.confidence
       });
     }
   }
@@ -238,29 +241,6 @@ function validateTrace(trace: WorkflowTrace): TraceValidation {
   if (!Array.isArray(trace.actions)) return { valid: false, reason: 'actions is not an array' };
   if (trace.actions.length === 0) return { valid: false, reason: 'empty actions array' };
   return { valid: true, reason: '' };
-}
-
-/**
- * Merge incoming selectors into an existing list.
- * Keeps highest-resilience candidate per strategy, caps at 5.
- */
-function mergeSelectors(existing: SelectorCandidate[], incoming: SelectorCandidate[]): void {
-  for (const candidate of incoming) {
-    const dup = existing.find(e => e.selector === candidate.selector);
-    if (dup) continue;
-
-    const sameStrategy = existing.find(e => e.strategy === candidate.strategy);
-    if (!sameStrategy) {
-      existing.push({ ...candidate });
-    } else if (candidate.resilience > sameStrategy.resilience) {
-      sameStrategy.selector = candidate.selector;
-      sameStrategy.resilience = candidate.resilience;
-      sameStrategy.playwright_locator = candidate.playwright_locator;
-    }
-  }
-
-  existing.sort((a, b) => b.resilience - a.resilience);
-  if (existing.length > 5) existing.splice(5);
 }
 
 /**

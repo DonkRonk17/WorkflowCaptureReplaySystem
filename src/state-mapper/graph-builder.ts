@@ -21,12 +21,12 @@ import type {
   TraceState,
   TraceTransition,
   GuardCondition,
-  SelectorCandidate,
   StateMachineDefinition
 } from '../types/index.js';
 
 import { exportToXState, type ExportOptions } from './xstate-export.js';
 import { calculateConfidence } from './confidence-scorer.js';
+import { mergeSelectors } from './selector-utils.js';
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -216,40 +216,6 @@ function inferGuards(stateBefore: PageState, action: ActionEvent): GuardConditio
   }
 
   return guards;
-}
-
-// ── Selector Merging ───────────────────────────────────────────────────────
-
-/**
- * Merge new selectors into an existing list.
- * - Keeps highest-resilience selector per strategy
- * - Deduplicates by selector string
- * - Caps at 5 total candidates
- */
-function mergeSelectors(
-  existing: SelectorCandidate[],
-  incoming: SelectorCandidate[]
-): void {
-  for (const candidate of incoming) {
-    const dup = existing.find(e => e.selector === candidate.selector);
-    if (!dup) {
-      // Check if better candidate for same strategy
-      const sameStrategy = existing.find(e => e.strategy === candidate.strategy);
-      if (!sameStrategy || candidate.resilience > sameStrategy.resilience) {
-        if (!sameStrategy) {
-          existing.push(candidate);
-        } else {
-          sameStrategy.selector = candidate.selector;
-          sameStrategy.resilience = candidate.resilience;
-          sameStrategy.playwright_locator = candidate.playwright_locator;
-        }
-      }
-    }
-  }
-
-  // Sort and cap
-  existing.sort((a, b) => b.resilience - a.resilience);
-  if (existing.length > 5) existing.splice(5);
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
