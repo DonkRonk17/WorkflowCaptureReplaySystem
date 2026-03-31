@@ -14,8 +14,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
 import type { WorkflowTrace } from './types/index.js';
-import { buildAndExportXState } from './state-mapper/graph-builder.js';
+import { buildAndExportXState, buildGraph } from './state-mapper/graph-builder.js';
 import { serializeMachine, generateStatelyUrl } from './state-mapper/xstate-export.js';
+import { WorkflowExecutor } from './runtime/executor.js';
+import { writeReport } from './runtime/reporter.js';
 
 const VERSION = '1.0.0';
 
@@ -159,6 +161,106 @@ program
       const outputPath = path.resolve(options.output);
       fs.writeFileSync(outputPath, JSON.stringify(merged, null, 2), 'utf-8');
       console.log(`[WCRS] ✓ Merged ${traces.length} traces (${merged.action_count} actions) → ${outputPath}`);
+    } catch (err) {
+      console.error('[WCRS] Error:', err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+// ── run command ────────────────────────────────────────────────────────────
+
+program
+  .command('run')
+  .description('Execute a recorded workflow trace against a live browser')
+  .argument('<trace-file>', 'Path to workflow_trace.json to replay')
+  .option('-o, --output <dir>', 'Output directory for report', './wcrs-output')
+  .option('--dry-run', 'Log actions but do not interact with the browser', false)
+  .option('--max-retries <n>', 'Max retries per step', '2')
+  .option('--timeout <ms>', 'Step timeout in ms', '60000')
+  .action(async (traceFile: string, options: {
+    output: string;
+    dryRun: boolean;
+    maxRetries: string;
+    timeout: string;
+  }) => {
+    try {
+      const tracePath = path.resolve(traceFile);
+      if (!fs.existsSync(tracePath)) {
+        console.error('[WCRS] Error: Trace file not found:', tracePath);
+        process.exit(1);
+      }
+
+      const raw = fs.readFileSync(tracePath, 'utf-8');
+      const trace = JSON.parse(raw) as WorkflowTrace;
+
+      console.log(`[WCRS] Loading trace: ${trace.trace_id} (${trace.action_count} actions)`);
+
+      const graph = buildGraph([trace]);
+      console.log(`[WCRS] Graph: ${graph.states.size} states, ${graph.transitions.length} transitions`);
+
+      const maxRetries = parseInt(options.maxRetries, 10);
+      const stepTimeoutMs = parseInt(options.timeout, 10);
+      const outputDir = path.resolve(options.output);
+
+      // WorkflowExecutor requires a Playwright Page; in CLI mode without a real browser
+      // the user is expected to connect Playwright externally or use --dry-run.
+      // For now, provide a stub page for dry-run and warn otherwise.
+      if (!options.dryRun) {
+        console.warn('[WCRS] Warning: Live execution requires an active Playwright browser session.');
+        console.warn('[WCRS] Use --dry-run to test without a browser.');
+      }
+
+      const stubPage = {
+        url: () => '',
+        title: async () => '',
+        goto: async () => null,
+        locator: () => ({ click: async () => {}, fill: async () => {}, selectOption: async () => {}, count: async () => 0 }),
+        keyboard: { press: async () => {} },
+        waitForTimeout: async () => {},
+        screenshot: async () => Buffer.from(''),
+        evaluate: async () => {},
+        pdf: async () => Buffer.from('')
+      };
+
+      const machine = buildAndExportXState([trace]);
+
+      const executor = new WorkflowExecutor({
+        page: stubPage as never,
+        machine,
+        graph,
+        options: {
+          maxRetries: isNaN(maxRetries) ? 2 : maxRetries,
+          stepTimeoutMs: isNaN(stepTimeoutMs) ? 60_000 : stepTimeoutMs,
+          dryRun: options.dryRun,
+          outputDir,
+          screenshotOnFailure: !options.dryRun
+        },
+        workflowContext: {
+          patient_id: '',
+          pull_date: new Date().toISOString().slice(0, 10),
+          last_cu_date: '',
+          collected_docs: []
+        },
+        actions: trace.actions
+      });
+
+      console.log(`[WCRS] Starting ${options.dryRun ? 'DRY RUN' : 'LIVE'} execution...`);
+      const report = await executor.run();
+      await writeReport(report, outputDir);
+
+      console.log(`[WCRS] ✓ Execution complete`);
+      console.log(`[WCRS]   Status:    ${report.status}`);
+      console.log(`[WCRS]   Steps:     ${report.total_steps} total`);
+      console.log(`[WCRS]   Succeeded: ${report.steps_succeeded}`);
+      console.log(`[WCRS]   Recovered: ${report.steps_recovered}`);
+      console.log(`[WCRS]   Skipped:   ${report.steps_skipped}`);
+      console.log(`[WCRS]   Escalated: ${report.steps_escalated}`);
+      console.log(`[WCRS]   Report:    ${outputDir}/${report.run_id}.json`);
+
+      if (report.status === 'escalated') {
+        console.error(`[WCRS] ⚠ Escalated: ${report.escalation_reason}`);
+        process.exit(2);
+      }
     } catch (err) {
       console.error('[WCRS] Error:', err instanceof Error ? err.message : String(err));
       process.exit(1);
