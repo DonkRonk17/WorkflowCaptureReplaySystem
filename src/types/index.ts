@@ -206,6 +206,7 @@ export interface DocumentMetadata {
   patient_id: string;
   page_count?: number;
   source_url?: string;
+  content_hash?: string;      // SHA/MD5 for deduplication
 }
 
 export interface WorkflowContext {
