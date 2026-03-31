@@ -1,0 +1,94 @@
+# CU (Clinical Update) Business Rules
+# Used by the Rules Engine (Module 6) to validate document naming, dates, and sequencing
+
+rules:
+
+  # ── Sequencing Rules ──────────────────────────────────────────────────────
+  - id: ADMIN_NOTE_FIRST
+    type: sequencing
+    description: Admin note must be created before any documents
+    condition: "step.type == 'admin_note'"
+    must_precede: ["*"]
+
+  # ── Date Filter Rules ─────────────────────────────────────────────────────
+  - id: LABS_DATE_SCOPE
+    type: date_filter
+    description: Labs filtered since last CU date
+    doc_type: Lab
+    filter: "document_date >= last_cu_date"
+
+  - id: RAD_DATE_SCOPE
+    type: date_filter
+    description: Radiology filtered since last CU date
+    doc_type: Rad
+    filter: "document_date >= last_cu_date"
+
+  - id: COC_DATE_SCOPE
+    type: date_filter
+    description: Continuity of Care filtered since last CU date
+    doc_type: COC
+    filter: "document_date >= last_cu_date"
+
+  - id: PPN_DATE_SCOPE
+    type: date_filter
+    description: Physician Progress Notes filtered since last CU date
+    doc_type: PPN
+    filter: "document_date >= last_cu_date"
+
+  - id: SW_ALL_TIME
+    type: date_filter
+    description: Skin/Wound notes have no date limit — all time
+    doc_type: SW
+    filter: "none"
+
+  # ── Naming Convention Rules ───────────────────────────────────────────────
+  - id: NAMING_PULL_DATE
+    type: naming
+    description: FC, FS, OS, MAR, VS use pull date in filename
+    doc_types: [FC, FS, OS, MAR, VS]
+    filename_date: pull_date
+
+  - id: NAMING_DOC_DATE
+    type: naming
+    description: Lab, Rad, WO, COC, SW, PPN, OT, PT, ST use document date in filename
+    doc_types: [Lab, Rad, WO, COC, SW, PPN, OT, PT, ST]
+    filename_date: document_date
+
+  # ── Ordering Rules ────────────────────────────────────────────────────────
+  - id: PACKET_ORDER
+    type: ordering
+    description: CU packet combine order — FC first, FS second, then alphabetical
+    order:
+      - FC
+      - FS
+      - alphabetical_by_doc_class
+
+  # ── Conditional Inclusion Rules ───────────────────────────────────────────
+  - id: RAD_CONDITIONAL
+    type: conditional
+    description: Radiology included only if radiology results exist since last CU
+    doc_type: Rad
+    condition: "radiology_results_exist == true"
+
+  - id: THERAPY_CONDITIONAL
+    type: conditional
+    description: Therapy docs (OT, PT, ST) included only if applicable disciplines are active
+    doc_types: [OT, PT, ST]
+    condition: "therapy_discipline_active == true"
+
+  # ── Submission Rules ──────────────────────────────────────────────────────
+  - id: SUBMISSION_EMAIL
+    type: submission
+    description: Email CM and CC Nathaniel after packet assembly
+    action: email
+    recipients: [CM, Nathaniel]
+
+  - id: SUBMISSION_AVAILITY
+    type: submission
+    description: Submit via Availity portal
+    action: availity_submit
+
+  - id: SUBMISSION_FAX
+    type: submission
+    description: Send via virtualfax.me
+    action: virtual_fax
