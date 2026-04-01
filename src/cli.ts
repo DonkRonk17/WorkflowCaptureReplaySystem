@@ -176,11 +176,19 @@ program
   .option('--dry-run', 'Log actions but do not interact with the browser', false)
   .option('--max-retries <n>', 'Max retries per step', '2')
   .option('--timeout <ms>', 'Step timeout in ms', '60000')
+  .option('--pdf-check', 'Enable PDF fidelity check after print steps', false)
+  .option('--rules-check', 'Enable CU rules evaluation after document steps', false)
+  .option('--handoff-file', 'Write HANDOFF file on escalation (opt-in)')
+  .option('--handoff-webhook <url>', 'POST escalation notification to webhook URL')
   .action(async (traceFile: string, options: {
     output: string;
     dryRun: boolean;
     maxRetries: string;
     timeout: string;
+    pdfCheck: boolean;
+    rulesCheck: boolean;
+    handoffFile: boolean;
+    handoffWebhook?: string;
   }) => {
     try {
       const tracePath = path.resolve(traceFile);
@@ -229,6 +237,19 @@ program
 
       const machine = buildAndExportXState([trace]);
 
+      // Determine handoff options
+      let handoffOpts: import('./runtime/handoff-notifier.js').HandoffOptions | undefined;
+      if (options.handoffWebhook) {
+        handoffOpts = { channel: 'webhook', outputDir, webhookUrl: options.handoffWebhook };
+      } else if (options.handoffFile) {
+        handoffOpts = { channel: 'file', outputDir };
+      }
+
+      // Determine PDF check options
+      const pdfCheckOpts = options.pdfCheck
+        ? { outputDir, pullDate: new Date().toISOString().slice(0, 10), patientId: '' }
+        : undefined;
+
       const executor = new WorkflowExecutor({
         page: stubPage,
         machine,
@@ -238,7 +259,10 @@ program
           stepTimeoutMs: isNaN(stepTimeoutMs) ? 60_000 : stepTimeoutMs,
           dryRun: options.dryRun,
           outputDir,
-          screenshotOnFailure: !options.dryRun
+          screenshotOnFailure: !options.dryRun,
+          pdfCheck: pdfCheckOpts,
+          rulesCheck: options.rulesCheck ? { enabled: true } : undefined,
+          handoff: handoffOpts
         },
         workflowContext: {
           patient_id: '',

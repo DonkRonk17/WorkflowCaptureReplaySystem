@@ -35,6 +35,10 @@ import {
   type ExecutionReport,
   type StepResult
 } from './reporter.js';
+import { checkPdfAfterPrint, type PdfCheckOptions } from './pdf-hook.js';
+import { checkRulesAfterStep } from './rules-hook.js';
+import { notifyHandoff, type HandoffOptions } from './handoff-notifier.js';
+import { validatePacket } from './packet-validator.js';
 
 // ── Public interfaces ──────────────────────────────────────────────────────
 
@@ -45,6 +49,9 @@ export interface ExecutorOptions {
   screenshotOnFailure?: boolean; // default true
   outputDir?: string;            // for report + recovery log
   dryRun?: boolean;              // log actions but don't click
+  pdfCheck?: PdfCheckOptions;    // Sprint 4: PDF fidelity check after print steps
+  rulesCheck?: { enabled: boolean; rulesPath?: string };  // Sprint 4: rules eval after doc steps
+  handoff?: HandoffOptions;      // Sprint 4: human handoff notification on escalation
 }
 
 /** Minimal subset of Playwright's Page that the executor needs. */
@@ -86,9 +93,14 @@ const STRATEGY_PRIORITY: Record<string, number> = {
 
 // ── WorkflowExecutor ───────────────────────────────────────────────────────
 
+// Required base options (Sprint 3 fields with defaults)
+type RequiredBaseOptions = Required<Pick<ExecutorOptions,
+  'maxRetries' | 'stepTimeoutMs' | 'marTarTimeoutMs' | 'screenshotOnFailure' | 'outputDir' | 'dryRun'
+>>;
+
 export class WorkflowExecutor {
   private readonly ctx: ExecutorContext;
-  private readonly opts: Required<ExecutorOptions>;
+  private readonly opts: RequiredBaseOptions;
 
   constructor(ctx: ExecutorContext) {
     this.ctx = ctx;
@@ -138,13 +150,29 @@ export class WorkflowExecutor {
       }
     }
 
+    // ── Packet validation ────────────────────────────────────────────────
+    try {
+      report.packet_validation = validatePacket(this.ctx.workflowContext);
+    } catch (err) {
+      console.warn(`[WCRS executor] Packet validation failed (run_id=${report.run_id}): ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     finalizeReport(report, finalStateId);
 
     if (this.opts.outputDir) {
       try {
         await writeReport(report, this.opts.outputDir);
-      } catch (_) {
-        // report writing failure should not crash the executor
+      } catch (err) {
+        console.warn(`[WCRS executor] Report write failed (run_id=${report.run_id}): ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // ── Human handoff notification ────────────────────────────────────────
+    if (report.status === 'escalated' && this.ctx.options.handoff) {
+      try {
+        await notifyHandoff(report, this.ctx.options.handoff);
+      } catch (err) {
+        console.warn(`[WCRS executor] Handoff notification failed (run_id=${report.run_id}): ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -211,7 +239,7 @@ export class WorkflowExecutor {
       // ── Success path ───────────────────────────────────────────────────
       if (!actionError) {
         const status: StepResult['status'] = recoveryEvents.length > 0 ? 'recovered' : 'success';
-        return {
+        const stepResult: StepResult = {
           step_index: stepIndex,
           transition_id: transition.id,
           action_type: transition.action_type,
@@ -223,6 +251,36 @@ export class WorkflowExecutor {
           recovery_events: recoveryEvents,
           screenshot_ref: screenshotRef
         };
+
+        // ── PDF check hook (after print actions) ─────────────────────────
+        if (transition.action_type === 'print' && this.ctx.options.pdfCheck) {
+          try {
+            stepResult.pdf_check = await checkPdfAfterPrint(
+              this.ctx.page,
+              transition,
+              this.ctx.options.pdfCheck
+            );
+          } catch (err) {
+            console.warn(`[WCRS executor] PDF hook failed (step=${transition.id}): ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+
+        // ── Rules check hook (after download/print actions) ──────────────
+        if (
+          (transition.action_type === 'download' || transition.action_type === 'print') &&
+          this.ctx.options.rulesCheck?.enabled
+        ) {
+          try {
+            stepResult.rules_check = checkRulesAfterStep(
+              this.ctx.workflowContext,
+              this.ctx.options.rulesCheck.rulesPath
+            );
+          } catch (err) {
+            console.warn(`[WCRS executor] Rules hook failed (step=${transition.id}): ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+
+        return stepResult;
       }
 
       // ── Recovery decision ──────────────────────────────────────────────

@@ -12,6 +12,9 @@ import { randomUUID } from 'crypto';
 import type { WorkflowContext } from '../types/index.js';
 import type { StateVerificationResult } from './state-verifier.js';
 import type { RecoveryEvent } from './recovery-handler.js';
+import type { PdfCheckResult } from './pdf-hook.js';
+import type { RulesCheckResult } from './rules-hook.js';
+import type { PacketValidationResult } from './packet-validator.js';
 
 // ── Public interfaces ──────────────────────────────────────────────────────
 
@@ -26,6 +29,8 @@ export interface StepResult {
   verification: StateVerificationResult | null;
   recovery_events: RecoveryEvent[];
   screenshot_ref?: string;
+  pdf_check?: PdfCheckResult;
+  rules_check?: RulesCheckResult;
 }
 
 export type StepStatus = 'success' | 'recovered' | 'skipped' | 'failed' | 'escalated';
@@ -49,6 +54,7 @@ export interface ExecutionReport {
   escalation_reason?: string;
   patient_id?: string;
   pull_date?: string;
+  packet_validation?: PacketValidationResult;
 }
 
 export type RunStatus = 'completed' | 'escalated' | 'failed';
