@@ -1,11 +1,11 @@
 /**
- * WCRS Human Handoff Notifier (Sprint 4 — Module 13)
- * Emits a human handoff notification when a workflow run is escalated.
+ * WCRS Handoff Notifier (Sprint 4 — Human Handoff)
+ * Sends an escalation notification when the executor reaches an ESCALATE step.
  *
- * Supports three channels:
- *   'file'    — write HANDOFF-<run_id>.json to outputDir
- *   'console' — print a formatted block to stdout
- *   'webhook' — POST notification JSON to webhookUrl (never throws)
+ * Supported channels:
+ *   'file'    — Writes <outputDir>/HANDOFF-<run_id>.json
+ *   'console' — Prints a formatted block to stdout
+ *   'webhook' — POSTs JSON to webhookUrl (Node.js https; no new deps)
  */
 
 import * as fs from 'fs';
@@ -14,136 +14,123 @@ import * as https from 'https';
 import * as http from 'http';
 import type { ExecutionReport } from './reporter.js';
 
-// ── Public Interfaces ──────────────────────────────────────────────────────
-
-export interface HandoffNotification {
-  run_id: string;
-  workflow_id: string;
-  patient_id?: string;
-  escalation_reason: string;
-  step_index: number;
-  timestamp: string;
-  report_path: string;
-}
+// ── Public interfaces ──────────────────────────────────────────────────────
 
 export type NotificationChannel = 'file' | 'console' | 'webhook';
 
 export interface HandoffOptions {
   channel: NotificationChannel;
-  outputDir: string;
-  webhookUrl?: string;   // for channel='webhook'
+  /** Required when channel === 'file'. */
+  outputDir?: string;
+  /** Required when channel === 'webhook'. */
+  webhookUrl?: string;
+}
+
+export interface HandoffNotification {
+  event: 'ESCALATED';
+  run_id: string;
+  workflow_id: string;
+  escalation_reason: string;
+  patient_id?: string;
+  pull_date?: string;
+  started_at: string;
+  completed_at: string;
+  total_steps: number;
+  steps_succeeded: number;
+  steps_escalated: number;
+  final_state_id: string | null;
+  notified_at: string;
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /**
- * Emit a human handoff notification for an escalated workflow run.
- *
- * @param report  - The escalated ExecutionReport
- * @param options - Channel and output configuration
+ * Notify the configured channel that a workflow has been escalated to a human.
+ * Never throws — errors are logged as warnings.
  */
 export async function notifyHandoff(
   report: ExecutionReport,
   options: HandoffOptions
 ): Promise<void> {
-  const notification = buildNotification(report, options.outputDir);
+  const notification: HandoffNotification = buildNotification(report);
 
   switch (options.channel) {
     case 'file':
-      writeFileNotification(notification, options.outputDir);
+      await notifyFile(notification, options.outputDir ?? './wcrs-output');
       break;
     case 'console':
-      printConsoleNotification(notification);
+      notifyConsole(notification);
       break;
     case 'webhook':
-      await postWebhookNotification(notification, options.webhookUrl);
+      if (options.webhookUrl) {
+        await notifyWebhook(notification, options.webhookUrl);
+      } else {
+        console.warn('[WCRS] handoff-notifier: webhook channel selected but no webhookUrl provided');
+      }
       break;
+    default:
+      console.warn(`[WCRS] handoff-notifier: unknown channel "${(options as HandoffOptions).channel}"`);
   }
 }
 
-// ── Notification builder ───────────────────────────────────────────────────
+// ── Private helpers ────────────────────────────────────────────────────────
 
-function buildNotification(
-  report: ExecutionReport,
-  outputDir: string
-): HandoffNotification {
-  // Find the step index of the last escalated step
-  let escalatedStep: (typeof report.step_results[number]) | undefined;
-  for (let i = report.step_results.length - 1; i >= 0; i--) {
-    if (report.step_results[i].status === 'escalated') {
-      escalatedStep = report.step_results[i];
-      break;
-    }
-  }
-  const stepIndex = escalatedStep?.step_index ?? 0;
-
-  const reportPath = path.join(outputDir, `${report.run_id}.json`);
-
+function buildNotification(report: ExecutionReport): HandoffNotification {
   return {
+    event: 'ESCALATED',
     run_id: report.run_id,
     workflow_id: report.workflow_id,
+    escalation_reason: report.escalation_reason ?? 'Unknown reason',
     patient_id: report.patient_id,
-    escalation_reason: report.escalation_reason ?? 'Unknown escalation reason',
-    step_index: stepIndex,
-    timestamp: new Date().toISOString(),
-    report_path: reportPath
+    pull_date: report.pull_date,
+    started_at: report.started_at,
+    completed_at: report.completed_at,
+    total_steps: report.total_steps,
+    steps_succeeded: report.steps_succeeded,
+    steps_escalated: report.steps_escalated,
+    final_state_id: report.final_state_id,
+    notified_at: new Date().toISOString()
   };
 }
 
-// ── Channel implementations ────────────────────────────────────────────────
-
-function writeFileNotification(
-  notification: HandoffNotification,
-  outputDir: string
-): void {
+async function notifyFile(notification: HandoffNotification, outputDir: string): Promise<void> {
   try {
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
     const filePath = path.join(outputDir, `HANDOFF-${notification.run_id}.json`);
     fs.writeFileSync(filePath, JSON.stringify(notification, null, 2), 'utf-8');
+    console.log(`[WCRS] Handoff notification written to: ${filePath}`);
   } catch (err) {
-    console.warn(`[WCRS handoff] Failed to write handoff file: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`[WCRS] handoff-notifier: failed to write file — ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
-function printConsoleNotification(notification: HandoffNotification): void {
-  console.log([
-    '',
-    '╔══════════════════════════════════════════════════════════╗',
-    '║              ⚠  HUMAN HANDOFF REQUIRED  ⚠               ║',
-    '╠══════════════════════════════════════════════════════════╣',
-    `║  Run ID:    ${notification.run_id.padEnd(44)} ║`,
-    `║  Workflow:  ${notification.workflow_id.padEnd(44)} ║`,
-    `║  Patient:   ${(notification.patient_id ?? 'N/A').padEnd(44)} ║`,
-    `║  Step:      ${String(notification.step_index).padEnd(44)} ║`,
-    `║  Time:      ${notification.timestamp.padEnd(44)} ║`,
-    `║  Reason:    ${notification.escalation_reason.slice(0, 44).padEnd(44)} ║`,
-    `║  Report:    ${notification.report_path.slice(0, 44).padEnd(44)} ║`,
-    '╚══════════════════════════════════════════════════════════╝',
-    ''
-  ].join('\n'));
+function notifyConsole(notification: HandoffNotification): void {
+  console.log('');
+  console.log('╔══════════════════════════════════════════════════════════════╗');
+  console.log('║        WCRS WORKFLOW ESCALATED — HUMAN NEEDED               ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝');
+  console.log(`  Run ID:    ${notification.run_id}`);
+  console.log(`  Workflow:  ${notification.workflow_id}`);
+  console.log(`  Reason:    ${notification.escalation_reason}`);
+  if (notification.patient_id) console.log(`  Patient:   ${notification.patient_id}`);
+  if (notification.pull_date)  console.log(`  Pull Date: ${notification.pull_date}`);
+  console.log(`  Steps:     ${notification.steps_succeeded}/${notification.total_steps} succeeded`);
+  console.log(`  State:     ${notification.final_state_id ?? 'N/A'}`);
+  console.log(`  Notified:  ${notification.notified_at}`);
+  console.log('');
 }
 
-async function postWebhookNotification(
-  notification: HandoffNotification,
-  webhookUrl?: string
-): Promise<void> {
-  if (!webhookUrl) {
-    console.warn('[WCRS handoff] webhook channel selected but no webhookUrl provided');
-    return;
-  }
-
-  const body = JSON.stringify(notification);
-  const TIMEOUT_MS = 10_000;
-
+async function notifyWebhook(notification: HandoffNotification, webhookUrl: string): Promise<void> {
   return new Promise<void>((resolve) => {
     try {
+      const body = JSON.stringify(notification);
       const url = new URL(webhookUrl);
       const isHttps = url.protocol === 'https:';
       const transport = isHttps ? https : http;
 
-      const reqOptions = {
+      const reqOptions: https.RequestOptions = {
         hostname: url.hostname,
         port: url.port || (isHttps ? 443 : 80),
         path: url.pathname + url.search,
@@ -155,33 +142,31 @@ async function postWebhookNotification(
       };
 
       const req = transport.request(reqOptions, (res) => {
-        // Drain response to free socket
         res.resume();
+        if (res.statusCode && res.statusCode >= 400) {
+          console.warn(`[WCRS] handoff-notifier: webhook returned HTTP ${res.statusCode}`);
+        } else {
+          console.log(`[WCRS] Handoff notification posted to webhook (HTTP ${res.statusCode})`);
+        }
         resolve();
       });
-
-      const timer = setTimeout(() => {
-        req.destroy();
-        console.warn('[WCRS handoff] Webhook POST timed out — skipping notification');
-        resolve();
-      }, TIMEOUT_MS);
-      timer.unref(); // don't keep the event loop alive if this is the only active handle
 
       req.on('error', (err) => {
-        clearTimeout(timer);
-        console.warn(`[WCRS handoff] Webhook POST failed: ${err.message}`);
-        resolve(); // never throw
+        console.warn(`[WCRS] handoff-notifier: webhook request failed — ${err.message}`);
+        resolve();
       });
 
-      req.on('close', () => {
-        clearTimeout(timer);
+      req.setTimeout(10_000, () => {
+        console.warn('[WCRS] handoff-notifier: webhook request timed out');
+        req.destroy();
+        resolve();
       });
 
       req.write(body);
       req.end();
     } catch (err) {
-      console.warn(`[WCRS handoff] Webhook POST error: ${err instanceof Error ? err.message : String(err)}`);
-      resolve(); // never throw
+      console.warn(`[WCRS] handoff-notifier: webhook setup failed — ${err instanceof Error ? err.message : String(err)}`);
+      resolve();
     }
   });
 }
