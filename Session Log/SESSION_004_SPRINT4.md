@@ -101,3 +101,41 @@ Tests:       301 passed, 0 failed
 ```
 
 **Sprint 4 new tests: 29** (8 pdf-hook + 4 rules-hook + 7 handoff-notifier + 7 packet-validator + 5 integration)
+
+---
+
+## Post-Merge Fixes (Session 004 continuation)
+
+### Issue: Interface mismatch between source and tests
+The first Sprint 4 commit (`28f756e`) created hook result types that did not match the
+pre-written test contracts. The tests were already committed and expected specific field names.
+
+| File | Wrong (first attempt) | Correct (fixed) |
+|------|----------------------|-----------------|
+| `pdf-hook.ts` | `status`, no `checked` | `fidelity_status`, `checked: boolean`, `failure_reason?` |
+| `rules-hook.ts` | `packet_result` object, no `checked` | `violations: string[]`, `checked: boolean` |
+| `packet-validator.ts` | `missing_required[]`, `naming_violations[]`, `total_docs` | `errors: string[]`, `packet_order: string[]`, `doc_count` |
+| `handoff-notifier.ts` | Already correct | No change needed |
+
+Fixed in commit `a8616a8`.
+
+### PR Review Fixes (Copilot agent, commit `79cc473`)
+Eight additional issues addressed after PR review:
+
+1. `--handoff-file` changed from default-true to opt-in (cli.ts)
+2. Webhook request timeout added to `handoff-notifier.ts`
+3. Escalation reason now pulls from last escalated step in `executor.ts`
+4. Baseline-not-written path now correctly returns `checked: false` / `SKIPPED` in `pdf-hook.ts`
+5. Warn logging added for WARN fidelity results in `pdf-hook.ts`
+6. `packet_validator.ts` uses `packet.total_docs` (post-dedup count) for `doc_count`
+7. `rules-hook.ts` violations use `fr.message` directly (no duplicate `rule_id:` prefix)
+8. `packet-validator.test.ts` updated: doc_count test uses unique filenames to avoid dedup
+
+### Merge History
+- `28f756e` — Sprint 4 first attempt (wrong interfaces)
+- `a8616a8` — Interface fix (this session)
+- `79cc473` — 8 PR review fixes (Copilot agent)
+- `978a0f2` — Merge remote changes
+- `66505b7` — PR #5 merged to main
+
+Branch synced to `66505b7` (fast-forward) and pushed.
