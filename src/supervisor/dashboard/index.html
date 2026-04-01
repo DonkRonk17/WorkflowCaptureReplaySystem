@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WCRS Supervisor Dashboard</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    #root { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .header { border-bottom: 1px solid #2d3748; padding-bottom: 16px; margin-bottom: 24px; }
+    .header h1 { font-size: 1.4rem; font-weight: 600; color: #90cdf4; letter-spacing: 0.05em; }
+    .header .subtitle { font-size: 0.8rem; color: #718096; margin-top: 4px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge-connected { background: #276749; color: #9ae6b4; }
+    .badge-disconnected { background: #742a2a; color: #feb2b2; }
+    .badge-success { background: #276749; color: #9ae6b4; }
+    .badge-recovered { background: #744210; color: #fbd38d; }
+    .badge-escalated { background: #742a2a; color: #feb2b2; }
+    .badge-skipped { background: #2c5282; color: #90cdf4; }
+    .card { background: #1a202c; border: 1px solid #2d3748; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; color: #718096; margin-bottom: 12px; }
+    .step-row { display: flex; align-items: center; gap: 12px; }
+    .step-num { font-size: 2rem; font-weight: 700; color: #90cdf4; min-width: 48px; }
+    .step-info { flex: 1; }
+    .step-action { font-size: 1rem; font-weight: 600; }
+    .step-state { font-size: 0.78rem; color: #718096; margin-top: 2px; font-family: monospace; }
+    .confidence-bar { background: #2d3748; border-radius: 4px; height: 6px; margin-top: 8px; overflow: hidden; }
+    .confidence-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+    .docs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .doc-list { font-size: 0.8rem; }
+    .doc-list li { padding: 3px 0; color: #a0aec0; list-style: none; }
+    .doc-list li::before { content: '✓ '; color: #68d391; }
+    .doc-list li.remaining::before { content: '○ '; color: #718096; }
+    .history { max-height: 200px; overflow-y: auto; }
+    .history-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #2d3748; font-size: 0.8rem; }
+    .history-item:last-child { border-bottom: none; }
+    .intervention { background: #2d1a1a; border: 1px solid #e53e3e; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .intervention h2 { color: #fc8181; font-size: 1rem; margin-bottom: 8px; }
+    .intervention .reason { font-size: 0.85rem; color: #fbd38d; margin-bottom: 4px; }
+    .intervention .detail { font-size: 0.78rem; color: #a0aec0; font-family: monospace; margin-bottom: 16px; }
+    .btn-row { display: flex; gap: 10px; }
+    button { padding: 8px 20px; border-radius: 6px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+    button:hover { opacity: 0.85; }
+    .btn-retry { background: #3182ce; color: white; }
+    .btn-skip { background: #d69e2e; color: white; }
+    .btn-escalate { background: #c53030; color: white; }
+    .complete-banner { border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 16px; }
+    .complete-banner.success { background: #1c4532; border: 1px solid #38a169; }
+    .complete-banner.escalated { background: #2d1a1a; border: 1px solid #e53e3e; }
+    .complete-banner h2 { font-size: 1.2rem; font-weight: 700; }
+    .complete-banner .detail { font-size: 0.85rem; color: #a0aec0; margin-top: 6px; }
+    .waiting { text-align: center; padding: 60px 20px; color: #4a5568; }
+    .waiting .pulse { display: inline-block; width: 10px; height: 10px; background: #4a5568; border-radius: 50%; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+function confidenceColor(c) {
+  if (c >= 0.7) return '#68d391';
+  if (c >= 0.4) return '#fbd38d';
+  return '#fc8181';
+}
+
+function App() {
+  const [connected, setConnected] = useState(false);
+  const [status, setStatus] = useState(null);
+  const [intervention, setIntervention] = useState(null);
+  const [complete, setComplete] = useState(null);
+  const [history, setHistory] = useState([]);
+  const wsRef = useRef(null);
+
+  const connect = useCallback(() => {
+    const port = window.location.port || '9999';
+    const ws = new WebSocket(`ws://localhost:${port}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => setConnected(true);
+    ws.onclose = () => { setConnected(false); setTimeout(connect, 3000); };
+    ws.onerror = () => ws.close();
+
+    ws.onmessage = (evt) => {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'status_update') {
+        setStatus(msg.payload);
+        setHistory(h => [...h.slice(-49), { ...msg.payload, ts: msg.timestamp }]);
+        setIntervention(null);
+      } else if (msg.type === 'intervention_request') {
+        setIntervention(msg.payload);
+      } else if (msg.type === 'workflow_complete') {
+        setComplete(msg.payload);
+        setIntervention(null);
+      }
+    };
+  }, []);
+
+  useEffect(() => { connect(); return () => wsRef.current?.close(); }, [connect]);
+
+  const respond = (action) => {
+    if (!intervention || !wsRef.current) return;
+    wsRef.current.send(JSON.stringify({
+      type: 'human_response',
+      timestamp: new Date().toISOString(),
+      payload: { request_id: intervention.request_id, action }
+    }));
+    setIntervention(null);
+  };
+
+  return (
+    <div>
+      <div className="header">
+        <h1>WCRS Supervisor Dashboard</h1>
+        <div className="subtitle">
+          <span className={`badge ${connected ? 'badge-connected' : 'badge-disconnected'}`}>
+            {connected ? 'Live' : 'Disconnected'}
+          </span>
+          {status && <span style={{marginLeft: 10, fontSize: '0.78rem', color: '#718096'}}>
+            Workflow: <code style={{color:'#90cdf4'}}>{status.state_id}</code>
+          </span>}
+        </div>
+      </div>
+
+      {complete && (
+        <div className={`complete-banner ${complete.success ? 'success' : 'escalated'}`}>
+          <h2>{complete.success ? '✓ Workflow Complete' : '⚠ Workflow Escalated'}</h2>
+          <div className="detail">
+            {complete.escalation_reason || `${complete.docs_collected.length} docs collected · ${(complete.total_time_ms/1000).toFixed(1)}s`}
+          </div>
+        </div>
+      )}
+
+      {intervention && (
+        <div className="intervention">
+          <h2>⚠ Human Intervention Required</h2>
+          <div className="reason">Reason: {intervention.reason.replace(/_/g, ' ')}</div>
+          <div className="detail">
+            State: {intervention.current_state} → {intervention.expected_state}<br/>
+            {intervention.failure_detail}
+          </div>
+          <div className="btn-row">
+            {intervention.options.includes('retry') && (
+              <button className="btn-retry" onClick={() => respond('retry')}>↺ Retry</button>
+            )}
+            {intervention.options.includes('skip') && (
+              <button className="btn-skip" onClick={() => respond('skip')}>→ Skip</button>
+            )}
+            {intervention.options.includes('escalate') && (
+              <button className="btn-escalate" onClick={() => respond('escalate')}>✕ Escalate</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!status && !complete && (
+        <div className="waiting">
+          <div className="pulse"></div>
+          <p style={{marginTop: 12}}>Waiting for workflow to start…</p>
+        </div>
+      )}
+
+      {status && (
+        <>
+          <div className="card">
+            <h2>Current Step</h2>
+            <div className="step-row">
+              <div className="step-num">#{status.step_number}</div>
+              <div className="step-info">
+                <div className="step-action">
+                  {status.action_type.toUpperCase()}
+                  <span className={`badge badge-${status.status}`} style={{marginLeft: 8}}>
+                    {status.status}
+                  </span>
+                </div>
+                <div className="step-state">{status.state_id}</div>
+                <div className="confidence-bar">
+                  <div className="confidence-fill" style={{
+                    width: `${Math.round(status.confidence * 100)}%`,
+                    background: confidenceColor(status.confidence)
+                  }}/>
+                </div>
+                <div style={{fontSize:'0.72rem',color:'#718096',marginTop:3}}>
+                  Confidence: {Math.round(status.confidence * 100)}% · {(status.elapsed_ms/1000).toFixed(1)}s elapsed
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Documents</h2>
+            <div className="docs-grid">
+              <div>
+                <div style={{fontSize:'0.75rem',color:'#68d391',marginBottom:6}}>Collected ({status.docs_collected.length})</div>
+                <ul className="doc-list">
+                  {status.docs_collected.map((d,i) => <li key={i}>{d}</li>)}
+                  {status.docs_collected.length === 0 && <li style={{color:'#4a5568'}}>None yet</li>}
+                </ul>
+              </div>
+              <div>
+                <div style={{fontSize:'0.75rem',color:'#718096',marginBottom:6}}>Remaining ({status.docs_remaining.length})</div>
+                <ul className="doc-list">
+                  {status.docs_remaining.map((d,i) => <li key={i} className="remaining">{d}</li>)}
+                  {status.docs_remaining.length === 0 && <li style={{color:'#4a5568'}}>None</li>}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Step History</h2>
+            <div className="history">
+              {[...history].reverse().map((h, i) => (
+                <div className="history-item" key={i}>
+                  <span style={{color:'#718096',minWidth:28}}>#{h.step_number}</span>
+                  <span className={`badge badge-${h.status}`}>{h.status}</span>
+                  <span style={{flex:1}}>{h.action_type}</span>
+                  <span style={{color:'#4a5568',fontSize:'0.72rem'}}>{new Date(h.ts).toLocaleTimeString()}</span>
+                </div>
+              ))}
+              {history.length === 0 && <div style={{color:'#4a5568',fontSize:'0.8rem'}}>No steps yet</div>}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

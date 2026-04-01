@@ -39,6 +39,8 @@ import { checkPdfAfterPrint, type PdfCheckOptions } from './pdf-hook.js';
 import { checkRulesAfterStep } from './rules-hook.js';
 import { notifyHandoff, type HandoffOptions } from './handoff-notifier.js';
 import { validatePacket } from './packet-validator.js';
+import type { SupervisorEmitter } from '../supervisor/emitter.js';
+import type { InterventionRequest } from '../supervisor/types.js';
 
 // ── Public interfaces ──────────────────────────────────────────────────────
 
@@ -52,6 +54,7 @@ export interface ExecutorOptions {
   pdfCheck?: PdfCheckOptions;    // Sprint 4: PDF fidelity check after print steps
   rulesCheck?: { enabled: boolean; rulesPath?: string };  // Sprint 4: rules eval after doc steps
   handoff?: HandoffOptions;      // Sprint 4: human handoff notification on escalation
+  supervisor?: SupervisorEmitter; // B-007: real-time supervisor dashboard + human override
 }
 
 /** Minimal subset of Playwright's Page that the executor needs. */
@@ -140,6 +143,24 @@ export class WorkflowExecutor {
       addStepResult(report, stepResult);
       finalStateId = transition.to;
 
+      // ── Supervisor status update ─────────────────────────────────────────
+      if (this.ctx.options.supervisor && stepResult.status !== 'escalated') {
+        const elapsed = Date.now() - new Date(report.started_at).getTime();
+        try {
+          this.ctx.options.supervisor.emitStatusUpdate({
+            step_number: i + 1,
+            step_name: transition.id,
+            state_id: transition.to,
+            action_type: transition.action_type,
+            confidence: transition.confidence ?? 1,
+            status: stepResult.status as 'success' | 'recovered' | 'skipped' | 'failed',
+            docs_collected: (this.ctx.workflowContext.collected_docs ?? []).map(d => d.filename),
+            docs_remaining: [],
+            elapsed_ms: elapsed
+          });
+        } catch (_) { /* supervisor errors must not crash the executor */ }
+      }
+
       if (stepResult.status === 'escalated') {
         const lastRecov = stepResult.recovery_events[stepResult.recovery_events.length - 1];
         escalationReason = lastRecov
@@ -174,6 +195,21 @@ export class WorkflowExecutor {
       } catch (err) {
         console.warn(`[WCRS executor] Handoff notification failed (run_id=${report.run_id}): ${err instanceof Error ? err.message : String(err)}`);
       }
+    }
+
+    // ── Supervisor workflow complete ──────────────────────────────────────
+    if (this.ctx.options.supervisor) {
+      try {
+        this.ctx.options.supervisor.emitWorkflowComplete({
+          success: report.status === 'completed',
+          run_id: report.run_id,
+          workflow_id: report.workflow_id,
+          docs_collected: (this.ctx.workflowContext.collected_docs ?? []).map(d => d.filename),
+          docs_failed: [],
+          total_time_ms: report.total_duration_ms,
+          escalation_reason: report.escalation_reason
+        });
+      } catch (_) { /* supervisor errors must not crash the executor */ }
     }
 
     return report;
@@ -303,6 +339,39 @@ export class WorkflowExecutor {
       }
 
       if (decision.action === 'ESCALATE') {
+        // ── Supervisor intervention request ─────────────────────────────
+        if (this.ctx.options.supervisor) {
+          try {
+            const response = await this.ctx.options.supervisor.emitInterventionRequest({
+              reason: failureType as InterventionRequest['reason'],
+              current_state: transition.from,
+              expected_state: transition.to,
+              failure_detail: lastFailureDetail,
+              options: ['retry', 'skip', 'escalate'],
+              screenshot_url: screenshotRef ?? ''
+            });
+            if (response.action === 'retry') {
+              retryCount = 0;
+              continue;
+            }
+            if (response.action === 'skip') {
+              return {
+                step_index: stepIndex,
+                transition_id: transition.id,
+                action_type: transition.action_type,
+                started_at: startedAt,
+                completed_at: '',
+                duration_ms: 0,
+                status: 'skipped',
+                verification: null,
+                recovery_events: recoveryEvents,
+                screenshot_ref: screenshotRef
+              };
+            }
+            // 'escalate' or 'override' without selector — fall through to escalated return
+          } catch (_) { /* supervisor errors must not affect escalation path */ }
+        }
+
         return {
           step_index: stepIndex,
           transition_id: transition.id,

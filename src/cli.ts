@@ -180,6 +180,7 @@ program
   .option('--rules-check', 'Enable CU rules evaluation after document steps', false)
   .option('--handoff-file', 'Write HANDOFF file on escalation (opt-in)')
   .option('--handoff-webhook <url>', 'POST escalation notification to webhook URL')
+  .option('--supervisor [port]', 'Start real-time supervisor dashboard (default port: 9999)')
   .action(async (traceFile: string, options: {
     output: string;
     dryRun: boolean;
@@ -189,6 +190,7 @@ program
     rulesCheck: boolean;
     handoffFile: boolean;
     handoffWebhook?: string;
+    supervisor?: string | boolean;
   }) => {
     try {
       const tracePath = path.resolve(traceFile);
@@ -250,6 +252,15 @@ program
         ? { outputDir, pullDate: new Date().toISOString().slice(0, 10), patientId: '' }
         : undefined;
 
+      // Determine supervisor options
+      let supervisorServer: import('./supervisor/server.js').SupervisorServer | undefined;
+      if (options.supervisor !== undefined && options.supervisor !== false) {
+        const port = typeof options.supervisor === 'string' ? parseInt(options.supervisor, 10) : 9999;
+        const { SupervisorServer } = await import('./supervisor/server.js');
+        supervisorServer = new SupervisorServer(isNaN(port) ? 9999 : port);
+        await supervisorServer.listen();
+      }
+
       const executor = new WorkflowExecutor({
         page: stubPage,
         machine,
@@ -262,7 +273,8 @@ program
           screenshotOnFailure: !options.dryRun,
           pdfCheck: pdfCheckOpts,
           rulesCheck: options.rulesCheck ? { enabled: true } : undefined,
-          handoff: handoffOpts
+          handoff: handoffOpts,
+          supervisor: supervisorServer
         },
         workflowContext: {
           patient_id: '',
@@ -284,6 +296,10 @@ program
       console.log(`[WCRS]   Skipped:   ${report.steps_skipped}`);
       console.log(`[WCRS]   Escalated: ${report.steps_escalated}`);
       console.log(`[WCRS]   Report:    ${outputDir}/${report.run_id}.json`);
+
+      if (supervisorServer) {
+        await supervisorServer.close();
+      }
 
       if (report.status === 'escalated') {
         console.error(`[WCRS] ⚠ Escalated: ${report.escalation_reason}`);
