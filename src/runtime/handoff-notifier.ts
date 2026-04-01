@@ -68,7 +68,13 @@ function buildNotification(
   outputDir: string
 ): HandoffNotification {
   // Find the step index of the last escalated step
-  const escalatedStep = report.step_results.find(s => s.status === 'escalated');
+  let escalatedStep: (typeof report.step_results[number]) | undefined;
+  for (let i = report.step_results.length - 1; i >= 0; i--) {
+    if (report.step_results[i].status === 'escalated') {
+      escalatedStep = report.step_results[i];
+      break;
+    }
+  }
   const stepIndex = escalatedStep?.step_index ?? 0;
 
   const reportPath = path.join(outputDir, `${report.run_id}.json`);
@@ -129,6 +135,7 @@ async function postWebhookNotification(
   }
 
   const body = JSON.stringify(notification);
+  const TIMEOUT_MS = 10_000;
 
   return new Promise<void>((resolve) => {
     try {
@@ -153,9 +160,21 @@ async function postWebhookNotification(
         resolve();
       });
 
+      const timer = setTimeout(() => {
+        req.destroy();
+        console.warn('[WCRS handoff] Webhook POST timed out — skipping notification');
+        resolve();
+      }, TIMEOUT_MS);
+      timer.unref(); // don't keep the event loop alive if this is the only active handle
+
       req.on('error', (err) => {
+        clearTimeout(timer);
         console.warn(`[WCRS handoff] Webhook POST failed: ${err.message}`);
         resolve(); // never throw
+      });
+
+      req.on('close', () => {
+        clearTimeout(timer);
       });
 
       req.write(body);

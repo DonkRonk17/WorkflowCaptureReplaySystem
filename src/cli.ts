@@ -178,7 +178,7 @@ program
   .option('--timeout <ms>', 'Step timeout in ms', '60000')
   .option('--pdf-check', 'Enable PDF fidelity check after print steps', false)
   .option('--rules-check', 'Enable CU rules evaluation after document steps', false)
-  .option('--handoff-file', 'Write HANDOFF file on escalation (default: true)', true)
+  .option('--handoff-file', 'Write HANDOFF file on escalation (opt-in)')
   .option('--handoff-webhook <url>', 'POST escalation notification to webhook URL')
   .action(async (traceFile: string, options: {
     output: string;

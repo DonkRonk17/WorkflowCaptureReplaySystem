@@ -78,10 +78,18 @@ export async function checkPdfAfterPrint(
   const baselineExists = fs.existsSync(baselinePath);
 
   if (!baselineExists) {
-    // First run — save captured PDF as baseline and return PASS
+    // First run — save captured PDF as baseline
     try {
       fs.writeFileSync(baselinePath, pdfBuffer);
-    } catch (_) { /* ignore write failure for baseline */ }
+    } catch (err) {
+      // Baseline could not be persisted; return SKIPPED so subsequent runs
+      // don't silently report PASS without a real comparison.
+      return {
+        checked: false,
+        fidelity_status: 'SKIPPED',
+        failure_reason: `Failed to write baseline PDF: ${err instanceof Error ? err.message : String(err)}`
+      };
+    }
     return {
       checked: true,
       fidelity_status: 'PASS'

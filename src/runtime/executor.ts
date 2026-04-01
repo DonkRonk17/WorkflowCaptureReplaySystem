@@ -153,8 +153,8 @@ export class WorkflowExecutor {
     // ── Packet validation ────────────────────────────────────────────────
     try {
       report.packet_validation = validatePacket(this.ctx.workflowContext);
-    } catch (_) {
-      // packet validation failure should not crash the executor
+    } catch (err) {
+      console.warn(`[WCRS executor] Packet validation failed (run_id=${report.run_id}): ${err instanceof Error ? err.message : String(err)}`);
     }
 
     finalizeReport(report, finalStateId);
@@ -162,8 +162,8 @@ export class WorkflowExecutor {
     if (this.opts.outputDir) {
       try {
         await writeReport(report, this.opts.outputDir);
-      } catch (_) {
-        // report writing failure should not crash the executor
+      } catch (err) {
+        console.warn(`[WCRS executor] Report write failed (run_id=${report.run_id}): ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -171,8 +171,8 @@ export class WorkflowExecutor {
     if (report.status === 'escalated' && this.ctx.options.handoff) {
       try {
         await notifyHandoff(report, this.ctx.options.handoff);
-      } catch (_) {
-        // notification failure should not crash the executor
+      } catch (err) {
+        console.warn(`[WCRS executor] Handoff notification failed (run_id=${report.run_id}): ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -260,8 +260,8 @@ export class WorkflowExecutor {
               transition,
               this.ctx.options.pdfCheck
             );
-          } catch (_) {
-            // hook failure should not crash the executor
+          } catch (err) {
+            console.warn(`[WCRS executor] PDF hook failed (step=${transition.id}): ${err instanceof Error ? err.message : String(err)}`);
           }
         }
 
@@ -275,8 +275,8 @@ export class WorkflowExecutor {
               this.ctx.workflowContext,
               this.ctx.options.rulesCheck.rulesPath
             );
-          } catch (_) {
-            // hook failure should not crash the executor
+          } catch (err) {
+            console.warn(`[WCRS executor] Rules hook failed (step=${transition.id}): ${err instanceof Error ? err.message : String(err)}`);
           }
         }
 

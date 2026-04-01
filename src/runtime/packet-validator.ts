@@ -54,7 +54,7 @@ export function validatePacket(context: WorkflowContext): PacketValidationResult
 
   return {
     valid: errors.length === 0,
-    doc_count: context.collected_docs.length,
+    doc_count: packet.total_docs,
     errors,
     packet_order: packetOrder
   };

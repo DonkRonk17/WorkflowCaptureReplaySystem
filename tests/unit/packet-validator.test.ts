@@ -96,9 +96,13 @@ describe('validatePacket — doc_count', () => {
     expect(result.doc_count).toBe(0);
   });
 
-  it('returns doc_count matching number of docs', () => {
+  it('returns doc_count matching number of unique docs after deduplication', () => {
     const docs = Array.from({ length: 5 }, (_, i) =>
-      makeDoc({ filename: `FC_2026-03-3${i}.pdf`, doc_type: i === 0 ? 'FC' : i === 1 ? 'FS' : 'Lab' })
+      makeDoc({
+        filename: `DOC_2026-03-3${i}.pdf`,
+        doc_type: i === 0 ? 'FC' : i === 1 ? 'FS' : `Lab${i}`,
+        document_date: `2026-03-3${i}`
+      })
     );
     const result = validatePacket(makeContext(docs));
     expect(result.doc_count).toBe(5);

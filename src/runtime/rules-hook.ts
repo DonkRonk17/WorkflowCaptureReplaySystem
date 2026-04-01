@@ -44,9 +44,7 @@ export function checkRulesAfterStep(
       workflowContext
     );
 
-    const violations = packetResult.failed_rules.map(
-      f => `${f.rule_id}: ${f.message}`
-    );
+    const violations = packetResult.failed_rules.map(f => f.message);
 
     return {
       checked: true,
