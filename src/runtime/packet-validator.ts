@@ -1,61 +1,62 @@
 /**
- * WCRS Packet Validator (Sprint 4 — Module 14)
- * Validates the collected document packet at workflow completion.
+ * WCRS Packet Validator (Sprint 4 — Pipeline Integration)
+ * Validates the assembled CU packet at the end of a workflow run.
  *
- * Combines CU packet ordering (from packet-builder) and filename naming
- * convention validation (from doc-extractor/validator) into a single result.
+ * Checks:
+ *   1. No required document types missing (FC, FS) — via buildPacket
+ *   2. No document naming violations — via validateDocumentNaming
  */
 
 import type { WorkflowContext } from '../types/index.js';
 import { buildPacket } from '../doc-extractor/packet-builder.js';
 import { validateDocumentNaming } from '../doc-extractor/validator.js';
 
-// ── Public Interfaces ──────────────────────────────────────────────────────
+// ── Public interfaces ──────────────────────────────────────────────────────
 
 export interface PacketValidationResult {
   valid: boolean;
-  doc_count: number;
+  /** All validation errors as human-readable strings */
   errors: string[];
-  packet_order: string[];   // doc_type list in final order
+  /** doc_types in assembled packet order (FC, FS, ...) */
+  packet_order: string[];
+  doc_count: number;
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /**
- * Validate the collected documents in the workflow context.
+ * Validate the CU packet for the current workflow context.
  *
- * Checks:
- *   1. Required doc types present (FC, FS)
- *   2. Document naming conventions (pull_date or doc_date in filename)
- *
- * @param context - The workflow context containing collected_docs
+ * @param context - WorkflowContext containing collected_docs and pull_date
  * @returns PacketValidationResult
  */
 export function validatePacket(context: WorkflowContext): PacketValidationResult {
+  const docs = context.collected_docs ?? [];
+
+  // 1. Build packet — checks ordering and required types
+  const packet = buildPacket(docs);
+
   const errors: string[] = [];
 
-  // ── 1. Build packet (ordering + missing required) ──────────────────────
-  const packet = buildPacket(context.collected_docs);
-
-  for (const missingType of packet.missing_required) {
-    errors.push(`Missing required document type: ${missingType}`);
+  // Errors for missing required types
+  for (const missing of packet.missing_required) {
+    errors.push(`Missing required document type: ${missing}`);
   }
 
-  // ── 2. Validate naming conventions for each document ───────────────────
-  for (const doc of context.collected_docs) {
-    const namingResult = validateDocumentNaming(doc, context);
-    if (!namingResult.valid) {
-      errors.push(...namingResult.errors);
+  // 2. Validate naming for each doc
+  for (const doc of docs) {
+    const result = validateDocumentNaming(doc, context);
+    if (!result.valid) {
+      for (const err of result.errors) {
+        errors.push(err);
+      }
     }
   }
 
-  // ── 3. Build packet_order from the ordered packet ─────────────────────
-  const packetOrder = packet.order.map(d => d.doc_type);
-
   return {
     valid: errors.length === 0,
-    doc_count: context.collected_docs.length,
     errors,
-    packet_order: packetOrder
+    packet_order: packet.order.map(d => d.doc_type),
+    doc_count: docs.length
   };
 }
